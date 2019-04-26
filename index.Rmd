@@ -1,0 +1,342 @@
+---
+title: "Introduction aux modèles spatiaux avec R-INLA"
+author: <span style="color:black">François Rousseu</span>
+date: <span style="color:black">3 mai 2018</span>
+output:
+  html_document:
+    depth: 4
+    fig_height: 5
+    fig_width: 6
+    number_sections: no
+    code_folding: hide
+    toc: yes
+    toc_depth: 5
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+---
+
+<script>
+    $(document).ready(function() {
+      $items = $('div#TOC li');
+      $items.each(function(idx) {
+        num_ul = $(this).parentsUntil('#TOC').length;
+        $(this).css({'text-indent': num_ul * 20, 'padding-left': 0});
+      });
+
+    });
+</script>
+
+
+<style>
+
+pre.r {
+    background-color: #CCCCCC!important;
+    border-color: #EEEEEE!important;
+    font-size: 14pt;
+}
+
+pre code {
+  font-size: 11pt;
+}
+
+body {
+  font-size: 14pt;
+}
+
+.main-container {
+    max-width: 1300px !important;
+}
+
+#TOC {
+  font-size: 12pt;
+  border-color: white;
+}
+
+.list-group-item.active:focus{
+    z-index: 2;
+    color: darkgreen;
+    background-color: #EEEEEE;
+    border-color: red;
+    font-weight: bolder;
+    font-color: red;
+}
+
+.list-group-item.active:hover {
+    z-index: 2;
+    color: darkgreen;
+    background-color: #EEEEEE;
+    border-color: red;
+    font-weight: bolder;
+    font-color: red;
+}
+
+.list-group-item.active{
+    z-index: 2;
+    color: darkgreen;
+    background-color: #EEEEEE;
+    border-color: red;
+    font-weight: bolder;
+    font-color: red;
+}
+
+h1.title {
+  margin-top: 120px;
+  font-size: 42px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+h1 {
+  padding-top: 50px;
+  font-size: 42px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+h2 {
+  padding-top: 50px;
+  font-size: 36px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+
+h3 {
+  padding-top: 10px;
+  font-size: 32px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+h4 {
+  font-size: 28px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+h5 {
+  font-size: 26px;
+  color: DarkGreen;
+  font-weight: bold;
+}
+
+</style>
+
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, tidy=TRUE, error=TRUE, fig.align="center",collapse=TRUE)
+```
+
+<br>
+
+# Introduction
+
+****
+
+## Types de données
+
+Il y a 3 principaux types de données spatiales
+
+- Données géostatistiques
+- Données de points (point pattern)
+- Données d'aires (areal data or lattice data
+
+****
+
+### Données géostatistiques
+
+**Ce sont des données mesurées à des points fixes dans l'espace**
+
+- Aussi connu sous le nom de géostatistiques, kriging.
+
+<center>
+```{r,fig.width=4,fig.height=4,cache=TRUE,echo=FALSE}
+
+library(weathercan)
+library(raster)
+library(scales)
+
+s<-stations[stations$prov=="QC",]
+can<-getData("GADM",country="CAN",level=1)
+qc<-can[can$NAME_1=="Québec",]
+
+par(mar=c(0,0,0,0))
+plot(qc,col="grey80",border=NA)
+points(s$lon,s$lat,pch=16,col="darkred",cex=0.5)
+legend("topright",pch=16,col="darkred",pt.cex=0.5,legend="Station météo",bty="n",cex=1)
+
+```
+</center>
+<br>
+Données récoltées à des stations météo
+
+<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+[geoR](http://www.leg.ufpr.br/geoR/), [gstat](https://r-spatial.github.io/gstat/), [nlme](https://CRAN.R-project.org/package=nlme), [glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html), [R-INLA](http://www.r-inla.org/)
+
+
+****
+
+### Point pattern
+
+**Ce sont des données où la localisation des points dans l'espace est aléatoire**
+
+<center>
+```{r,fig.width=4,fig.height=4,cache=TRUE,echo=FALSE}
+
+library(rgbif)
+o<-occ_search(scientificName="Phragmites australis",limit=5000,publishingCountry="CA",stateProvince="Québec",hasCoordinate=TRUE)
+
+par(mar=c(0,0,0,0))
+plot(qc,col="grey80",border=NA,ylim=c(46,50))
+points(o$data$decimalLongitude,o$data$decimalLatitude,pch=16,col=alpha("darkgreen",0.3),cex=0.5)
+legend("topright",pch=16,col=alpha("darkgreen",0.3),pt.cex=0.5,legend="Mention de Phragmite",bty="n",cex=1)
+
+```
+</center>
+<br>
+L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autralis*)
+
+<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+[spatstat](http://spatstat.org/), [R-INLA](http://www.r-inla.org/)
+
+****
+
+### Areal data
+
+**Ce sont des données qui sont agrégées au niveau d'entités surfaciques**
+
+<center>
+```{r,out.width="40%",cache=TRUE,echo=FALSE}
+s<-stations[stations$prov=="QC",]
+can<-getData("GADM",country="CAN",level=2)
+qc<-can[can$NAME_1=="Québec",]
+
+par(mar=c(0,0,0,0))
+plot(qc,col="grey80",border="white",ylim=c(45,50),lwd=0.1)
+```
+</center>
+<br>
+Nombre de cas de détection de virus du Nil par unités administratives
+
+<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+[spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
+
+****
+
+###
+
+## Variogrammes
+
+Différentes valeurs de paramètres
+
+****
+
+### Empirical variogram
+
+Intuitivement, c'est la variance des différences entre toutes les paires d'observations pour différentes classe de distances.
+
+(mean square difference between each pair of variable divided by 2, semi-variance)
+
+****
+
+### Theoretical variogram
+
+Ce sont les modèles qui sont ajustés au variogramme empirique.
+
+```{r,warning=FALSE}
+library(gstat)
+show.vgms(models=c("Exp","Gau","Sph","Cir"),nugget=0,as.groups=TRUE)
+```
+
+Différents types de fonctions
+
+****
+
+```{r,warning=FALSE}
+show.vgms(kappa.range = c(0.2,0.5,1,2,5),models="Mat", max = 10,as.groups=TRUE)
+```
+
+****
+
+###
+
+## INLA
+
+### Approche bayésienne
+
+The binomial probability: 
+
+$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
+
+$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
+Où $data$ sont les données et $\theta$ sont les paramètres du modèle. 
+
+
+
+
+### Priors
+
+### LGM
+
+### SPDE
+
+SPDE veut dire **S**tochastic **P**artial **D**ifferential **E**quation
+
+Cette approche se base entre-autres sur une discrétisation du Gaussian Random Field (GRF) par un Gaussian Markov Random Field (GMRF)
+
+Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
+
+# Un exemple de cas
+
+## Cas
+
+## Étapes
+
+- **Mesh**: permet de créer la discrétisation
+- **Projector Matrix**: permet de relier les localisation à la grille
+- **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
+- **Spatial Field**: permet de créer le champs spatial
+- **Stack**: permet d'intégrer les différents éléments
+- **Formula**: formulation du modèle
+- **Modèle**: permet de faire tourner le modèle
+
+
+### Mesh
+
+### Projector Matrix
+
+### SPDE
+
+### Spatial Field
+
+### Stack
+
+### Formula
+
+### Modèle
+
+### Results
+
+# Options
+
+# Fonctions utiles
+
+## Summary
+
+## Predictions
+
+## inla.result
+
+## inla
+
+
+# Exercice 1
+
+# Exercice 2
+
+# Liens utiles
+
+## Forum R-INLA
+
+## Livres en ligne
+
+## Livres
+
+## Articles importants
+
+
