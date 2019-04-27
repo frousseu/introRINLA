@@ -119,7 +119,7 @@ h5 {
 </style>
 
 ```{r setup, include=TRUE, echo=FALSE}
-knitr::opts_chunk$set(echo=TRUE, tidy=TRUE, error=TRUE, fig.align="center",collapse=TRUE)
+knitr::opts_chunk$set(echo=TRUE,tidy=TRUE,error=TRUE,message=FALSE,warning=FALSE,fig.align="center",collapse=TRUE)
 ```
 
 <br>
@@ -165,7 +165,7 @@ legend("topright",pch=16,col="darkred",pt.cex=0.5,legend="Station météo",bty="
 <br>
 Données récoltées à des stations météo
 
-<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [geoR](http://www.leg.ufpr.br/geoR/), [gstat](https://r-spatial.github.io/gstat/), [nlme](https://CRAN.R-project.org/package=nlme), [glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html), [R-INLA](http://www.r-inla.org/)
 
 
@@ -191,7 +191,7 @@ legend("topright",pch=16,col=alpha("darkgreen",0.3),pt.cex=0.5,legend="Mention d
 <br>
 L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autralis*)
 
-<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spatstat](http://spatstat.org/), [R-INLA](http://www.r-inla.org/)
 
 ****
@@ -213,7 +213,7 @@ plot(qc,col="grey80",border="white",ylim=c(45,50),lwd=0.1)
 <br>
 Nombre de cas de détection de virus du Nil par unités administratives
 
-<img src="C:/Users/rouf1703/Documents/UdeS/GitHub/introRINLA/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
 
 ****
@@ -248,12 +248,189 @@ Différents types de fonctions
 ****
 
 ```{r,warning=FALSE}
-show.vgms(kappa.range = c(0.2,0.5,1,2,5),models="Mat", max = 10,as.groups=TRUE)
+show.vgms(kappa.range=c(0.5,1,2,5),models="Mat",max=10,as.groups=TRUE)
 ```
 
 ****
 
-###
+```{r}
+# https://doi.org/10.5061/dryad.7sk2g/1
+
+d<-read.csv("C:/Users/User/Downloads/Irl et al_2015_J Ecol_Dryad.csv",skip=1,sep=";",dec=",")
+names(d)<-gsub("\\.","",names(d))
+d$northing<-d$LongitudeUTM/1000
+d$easting<-d$LatitudeUTM/1000
+d$Elevationm<-d$Elevationm/1000
+plot(d[,c("SR","Elevationm","TCI")]
+
+```
+
+****
+
+```{r}
+m<-glm(SR~poly(Elevationm,2)+TCI,data=d,family=poisson)
+summary(m)
+```
+
+****
+
+```{r}
+library(visreg)
+par(mfrow=c(1,2))
+visreg(m,scale="response",rug=FALSE)
+```
+
+****
+
+```{r}
+library(geoR)
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(m),breaks=seq(0,10,by=0.5),max.dist=10)
+plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+```
+
+****
+
+```{r}
+library(sp)
+library(mapview)
+coordinates(d)<-~easting+northing
+proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs"
+plot(d)
+ds<-spTransform(d,CRS("+init=epsg:4326"))
+mapview(ds,zcol="SR")
+```
+
+****
+
+```{r}
+locs<-coordinates(d)
+head(locs)
+```
+
+****
+
+```{r}
+library(INLA)
+hull<-inla.nonconvex.hull(locs,convex=-0.05)
+mesh<-inla.mesh.2d(loc=locs,offset=c(0.5,5),max.edge=c(0.5,1.5),cutoff=0.5,boundary=hull)
+```
+
+****
+
+```{r}
+plot(mesh,asp=1)
+axis(1)
+axis(2)
+points(locs,col="red",pch=16)
+```
+
+****
+
+```{r}
+A<-inla.spde.make.A(mesh,locs)
+```
+
+****
+
+```{r}
+prior.median.sd<-4
+prior.median.range<-1
+spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.median.range,0.5),prior.sigma=c(prior.median.sd,0.5))
+```
+
+****
+
+```{r}
+s.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
+```
+
+****
+
+```{r}
+v<-c("TCI","Elevationm")
+vars<-d@data[,v]
+stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
+```
+
+****
+
+```{r}
+model<-SR~-1+Intercept+Elevationm+I(Elevationm^2)+TCI+f(spatial,model=spde)
+```
+
+****
+
+```{r}
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(dic=TRUE,waic=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
+```
+
+****
+
+```{r}
+res<-inla.spde.result(m,"spatial",spde)
+par(mfrow=c(2,1))
+plot(res$marginals.range.nominal[[1]],
+     type="l", main="Posterior density for range")
+plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
+     type="l", main="Posterior density for sd")
+```
+
+****
+
+```{r,include=FALSE,echo=FALSE}
+#tmp = inla.tmarginal(function(x) exp(-x), m$internal.marginals.hyperpar[[2]]) 
+#xvals = seq(0, 10, length.out=1000)
+#plot(tmp, type = "l", xlab = "inverse range", ylab = "Density",xlim=range(xvals))
+#lambda = -log(.5)/(1/prior.median.range); lines(xvals, 6*exp(-lambda*xvals), lty='dashed')
+```
+
+****
+
+```{r}
+par(mfrow=c(2,2))
+lapply(names(m$marginals.fixed),function(i){
+  p<-m$marginals.fixed[[i]]	
+	 plot(p[,1],p[,2],type="l",xlab=i,ylab="density")
+	 abline(v=0,lty=3)
+})
+```
+
+****
+
+```{r,echo=FALSE,include=FALSE}
+#library(inlabru)
+#spde.posterior(m,"spatial",what="range")
+```
+
+
+```{r}
+
+library(fields)
+library(viridisLite)
+
+local.plot.field = function(field, mesh, xlim=c(206,232), ylim=c(3150,3195), ...){
+  stopifnot(length(field) == mesh$n)
+  # - error when using the wrong mesh
+  proj = inla.mesh.projector(mesh, xlim = xlim, 
+                             ylim = ylim, dims=c(300, 300))
+  # - Can project from the mesh onto a 300x300 plotting grid 
+  field.proj = inla.mesh.project(proj, field)
+  # - Do the projection
+  image.plot(list(x = proj$x, y=proj$y, z = field.proj), 
+             xlim = xlim, ylim = ylim, col = viridis(101), ...)  
+}
+
+local.plot.field(m$summary.random[['spatial']][['mean']], mesh)
+#lines(5+c(-0.5, 0.5)*(res$summary.hyperpar[2, '0.5quant']), c(1,1)*5, lwd=3)
+# - add on the estimated range
+axis(1); axis(2)
+
+```
+
+
+
+
+
 
 ## INLA
 
