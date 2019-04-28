@@ -4,7 +4,7 @@ author: <span style="color:black">François Rousseu</span>
 date: <span style="color:black">3 mai 2018</span>
 output:
   html_document:
-    depth: 4
+    depth: 5
     fig_height: 5
     fig_width: 6
     number_sections: no
@@ -12,7 +12,7 @@ output:
     toc: yes
     toc_depth: 5
     toc_float:
-      collapsed: yes
+      collapsed: no
       smooth_scroll: no
 ---
 
@@ -21,7 +21,7 @@ output:
       $items = $('div#TOC li');
       $items.each(function(idx) {
         num_ul = $(this).parentsUntil('#TOC').length;
-        $(this).css({'text-indent': num_ul * 20, 'padding-left': 0});
+        $(this).css({'text-indent': num_ul * 20, 'padding-left': 2, 'padding-bottom': 0, 'padding-top': 0, 'padding-right': 2});
       });
 
     });
@@ -42,10 +42,12 @@ pre code {
 
 body {
   font-size: 14pt;
+  /*background-color: lightblue;*/
 }
 
 .main-container {
     max-width: 1300px !important;
+    /*background-color: lightblue;*/
 }
 
 #TOC {
@@ -116,6 +118,14 @@ h5 {
   font-weight: bold;
 }
 
+hr {
+    border: none;
+    height: 10px;
+    /* Set the hr color */
+    color: grey; /* old IE */
+    background-color: grey; /* Modern Browsers */
+}
+
 </style>
 
 ```{r setup, include=TRUE, echo=FALSE}
@@ -126,7 +136,7 @@ knitr::opts_chunk$set(echo=TRUE,cache=TRUE,tidy=TRUE,error=TRUE,message=FALSE,wa
 
 # Introduction
 
-****
+<hr>
 
 ## Types de données
 
@@ -136,7 +146,7 @@ Il y a 3 principaux types de données spatiales
 - Données de points (point pattern)
 - Données d'aires (areal data or lattice data
 
-****
+<hr>
 
 ### Données géostatistiques
 
@@ -145,7 +155,7 @@ Il y a 3 principaux types de données spatiales
 - Aussi connu sous le nom de géostatistiques, kriging.
 
 <center>
-```{r,fig.width=4,fig.height=4,cache=TRUE,echo=FALSE}
+```{r,cache=TRUE,echo=FALSE}
 
 library(weathercan)
 library(raster)
@@ -165,18 +175,18 @@ legend("topright",pch=16,col="darkred",pt.cex=0.5,legend="Station météo",bty="
 <br>
 Données récoltées à des stations météo
 
-<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="", width = "4%">
 [geoR](http://www.leg.ufpr.br/geoR/), [gstat](https://r-spatial.github.io/gstat/), [nlme](https://CRAN.R-project.org/package=nlme), [glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html), [R-INLA](http://www.r-inla.org/)
 
 
-****
+<hr>
 
 ### Point pattern
 
 **Ce sont des données où la localisation des points dans l'espace est aléatoire**
 
 <center>
-```{r,fig.width=4,fig.height=4,cache=TRUE,echo=FALSE}
+```{r,cache=TRUE,echo=FALSE}
 
 library(rgbif)
 o<-occ_search(scientificName="Phragmites australis",limit=5000,publishingCountry="CA",stateProvince="Québec",hasCoordinate=TRUE)
@@ -194,7 +204,7 @@ L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autr
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spatstat](http://spatstat.org/), [R-INLA](http://www.r-inla.org/)
 
-****
+<hr>
 
 ### Areal data
 
@@ -216,7 +226,7 @@ Nombre de cas de détection de virus du Nil par unités administratives
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
 
-****
+<hr>
 
 ###
 
@@ -224,7 +234,7 @@ Nombre de cas de détection de virus du Nil par unités administratives
 
 Différentes valeurs de paramètres
 
-****
+<hr>
 
 ### Empirical variogram
 
@@ -232,7 +242,7 @@ Intuitivement, c'est la variance des différences entre toutes les paires d'obse
 
 (mean square difference between each pair of variable divided by 2, semi-variance)
 
-****
+<hr>
 
 ### Theoretical variogram
 
@@ -245,13 +255,13 @@ show.vgms(models=c("Exp","Gau","Sph","Cir"),nugget=0,as.groups=TRUE)
 
 Différents types de fonctions
 
-****
+<hr>
 
 ```{r,warning=FALSE}
 show.vgms(kappa.range=c(0.5,1,2,5),models="Mat",max=10,as.groups=TRUE)
 ```
 
-****
+<hr>
 
 ```{r}
 # https://doi.org/10.5061/dryad.7sk2g/1
@@ -265,7 +275,9 @@ plot(d[,c("SR","Elevationm","TCI")])
 
 ```
 
-****
+
+
+<hr>
 
 ```{r,out.width="100%"}
 library(sp)
@@ -277,14 +289,31 @@ mapviewOptions(basemaps = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
 mapview(ds,zcol="SR")
 ```
 
-****
+<hr>
+
+```{r}
+# https://doi.org/10.5061/dryad.7sk2g/1
+
+library(scales)
+spa<-getData("GADM",country="ESP",level=2)
+laspalmas<-disaggregate(spa)[225,]
+
+plot(laspalmas,axes=TRUE)
+plot(ds,add=TRUE,col=alpha("darkgreen",0.5),pch=16)
+
+```
+
+
+
+
+<hr>
 
 ```{r}
 fit<-glm(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family=poisson)
 summary(fit)
 ```
 
-****
+<hr>
 
 ```{r}
 library(visreg)
@@ -292,7 +321,7 @@ par(mfrow=c(1,2))
 visreg(fit,scale="response",rug=FALSE)
 ```
 
-****
+<hr>
 
 ```{r}
 library(geoR)
@@ -300,19 +329,19 @@ v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=
 plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
 
-****
+<hr>
 
 ## INLA
 
 ### Approche bayésienne
 
-****
+<hr>
 
 Bayes' rule
 
 $$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
 
-****
+<hr>
 
 Lorsque appliquée aux modèles
 
@@ -333,6 +362,16 @@ Cette approche se base entre-autres sur une discrétisation du Gaussian Random F
 
 Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
 
+
+<hr>
+
+<!--
+<figure>
+<img src="C:/Users/User/Documents/GitHub/introRINLA/approachSPDE_Zuur.jpg" alt="", width = "100%">
+<figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
+</figure>
+-->
+
 ##
 
 ```{r}
@@ -341,7 +380,7 @@ m<-inla(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family="poisson")
 summary(m)
 ```
 
-****
+<hr>
 
 ```{r}
 m$summary.fixed[,c(1:3,5)]
@@ -356,6 +395,8 @@ cbind(summary(fit)$coef[,1:2],confint(fit))
 
 ## Étapes
 
+L'estimation d'un modèle avec un effet spatial avec INLA requiert de passer par plusieurs étapes.
+
 - **Mesh**: permet de créer une triangulation qui discrétise le GF
 - **Projector Matrix**: permet de relier les localisations à la grille
 - **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
@@ -364,33 +405,73 @@ cbind(summary(fit)$coef[,1:2],confint(fit))
 - **Formula**: formulation du modèle
 - **Modèle**: permet de faire tourner le modèle
 
-****
+<hr>
+
+Voici un résumé graphique de ces différentes étapes avec les fonction associées.
+
+<!--
+<figure>
+<img src="C:/Users/User/Documents/GitHub/introRINLA/stepsSPDE_Zuur.jpg" alt="", width = "100%">
+<figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
+</figure>
+-->
+
+<hr>
 
 ### Mesh
+
+La première étape consiste à créer une grille (*mesh*) qui va être utilisée pour approximer le champs Gaussien. En premier, il faut obtenir les localisations.
 
 ```{r,collapse=FALSE}
 locs<-coordinates(d)
 head(locs)
 ```
 
-****
+<hr>
+
+Par la suite, on utilise la fonction `inla.mesh.2d` pour créer la grille. Optionnellement, on peut utiliser une grille non-convexe qui respecte davantage le contour de nos observations.
 
 ```{r,collapse=FALSE}
 library(INLA)
 hull<-inla.nonconvex.hull(locs,convex=-0.05)
-mesh<-inla.mesh.2d(loc=locs,offset=c(0.5,5),max.edge=c(0.5,1.5),cutoff=0.5,boundary=hull)
+mesh<-inla.mesh.2d(loc=locs,offset=c(1,5),max.edge=c(1,3),cutoff=1,boundary=hull)
 ```
 
-****
+<hr>
 
-```{r,collapse=FALSE}
+```{r,collapse=FALSE,fig.width=8,fig.height=8}
+par(mar=c(0,0,6,0))
 plot(mesh,asp=1)
-axis(1)
-axis(2)
-points(locs,col="red",pch=16)
+points(locs,col=alpha("red",0.6),pch=16,cex=0.7)
 ```
 
-****
+
+<hr>
+
+`offset` 
+<br>
+<br>
+Spécifie l'étendue de l'extension de la grille au delà des observations et l'extension d'une zone tampon au-delà de cette grille. Cette dernière permet de réduire les effets de bordure lors des estimations. L'étendue de cette zone tampon doit être **au moins aussi grande que l'étendue de la corrélation spatiale**.
+
+`max.edge` 
+<br>
+<br>
+Permet de spécifier les dimensions maximales des triangles de la grille à l'intérieur et à l'extérieur dans la zone tampon. Plus ces triangles sont petits, plus les approximations sont précises, mais plus les calculs sont longs. En général, il n'est pas nécessaire que les triangles dans la zone tampon soient aussi petit qu'à l'intérieur de la grille.
+
+`cutoff`
+<br>
+<br>
+Par défaut, chaque observation sera utilisée comme un coin d'un triangle. Pour éviter la création de trop nombreux petit triangles, on spécifie une valeur à `cutoff` au0delà de laquelle des points voisins seront ignorés lors de la création des triangles.
+
+`boundary`
+<br>
+<br>
+Cet argument permet d'utilier l'étendue non-convexe autour des observations.
+
+Il faut éviter d'avoir des triangles avec des aigles trop aigus. Autrement, les estimations sont de moins bonnes qualité.
+
+<hr>
+
 
 ### Projector Matrix
 
@@ -398,7 +479,7 @@ points(locs,col="red",pch=16)
 A<-inla.spde.make.A(mesh,locs)
 ```
 
-****
+<hr>
 
 ### SPDE
 
@@ -408,7 +489,7 @@ prior.range<-1
 spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.range,0.5),prior.sigma=c(prior.sd,0.01))
 ```
 
-****
+<hr>
 
 ### Spatial Field
 
@@ -416,53 +497,48 @@ spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.range,0.5),prior.sigm
 s.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
 ```
 
-****
+<hr>
 
 ### Stack
 
 ```{r,collapse=FALSE}
-v<-c("TCI","Elevationm")
+d$Elevationm2<-d$Elevationm^2
+v<-c("TCI","Elevationm","Elevationm2")
 vars<-d@data[,v]
 stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
 ```
 
-****
+<hr>
 
 ### Formula
 
 ```{r,collapse=FALSE}
-model<-SR~-1+Intercept+Elevationm+I(Elevationm^2)+TCI+f(spatial,model=spde)
+model<-SR~-1+Intercept+Elevationm+Elevationm2+TCI+f(spatial,model=spde)
 ```
 
-****
+<hr>
 
 ### Modèle
 
 ```{r,collapse=FALSE}
-m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(dic=TRUE,waic=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(dic=TRUE,waic=TRUE,config=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
 ```
 
-****
+<hr>
+
+## Extraction 
+
+<hr>
+
+### Summary
 
 ```{r,collapse=FALSE}
-res<-inla.spde.result(m,"spatial",spde)
-par(mfrow=c(2,1))
-plot(res$marginals.range.nominal[[1]],
-     type="l", main="Posterior density for range")
-plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
-     type="l", main="Posterior density for sd")
+summary(m)
 ```
 
-****
+<hr>
 
-```{r,include=FALSE,echo=FALSE}
-#tmp = inla.tmarginal(function(x) exp(-x), m$internal.marginals.hyperpar[[2]]) 
-#xvals = seq(0, 10, length.out=1000)
-#plot(tmp, type = "l", xlab = "inverse range", ylab = "Density",xlim=range(xvals))
-#lambda = -log(.5)/(1/prior.median.range); lines(xvals, 6*exp(-lambda*xvals), lty='dashed')
-```
-
-****
+#### Distributions postérieures
 
 ```{r,collapse=FALSE}
 par(mfrow=c(2,2))
@@ -475,13 +551,36 @@ invisible(
 )
 ```
 
-****
+<hr>
+
+### Paramètres spatiaux
+
+```{r,collapse=FALSE}
+res<-inla.spde.result(m,"spatial",spde)
+par(mfrow=c(2,1))
+plot(res$marginals.range.nominal[[1]],
+     type="l", main="Posterior density for range")
+plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
+     type="l", main="Posterior density for sd")
+```
+
+<hr>
+
+```{r,include=FALSE,echo=FALSE}
+#tmp = inla.tmarginal(function(x) exp(-x), m$internal.marginals.hyperpar[[2]]) 
+#xvals = seq(0, 10, length.out=1000)
+#plot(tmp, type = "l", xlab = "inverse range", ylab = "Density",xlim=range(xvals))
+#lambda = -log(.5)/(1/prior.median.range); lines(xvals, 6*exp(-lambda*xvals), lty='dashed')
+```
 
 ```{r,echo=FALSE,include=FALSE}
 #library(inlabru)
 #spde.posterior(m,"spatial",what="range")
 ```
 
+<hr>
+
+### Visualisations du champ spatial
 
 ```{r,collapse=FALSE}
 
@@ -499,13 +598,84 @@ proj<-inla.mesh.projector(mesh,xlim=xlim,ylim=ylim,dims=c(300,300))
 
 # - Do the projection
 field<-m$summary.random[['spatial']][['mean']]
-field.proj<-inla.mesh.project(proj,field)
+field.proj<-inla.mesh.project(projector=proj,field=field)
 
 
 par(mar=c(2,2,2,2))
 image.plot(list(x=proj$x,y=proj$y,z=field.proj),col=viridis(100),asp=1)  
 axis(1)
 axis(2)
+
+```
+
+<hr>
+
+#### Champ moyen
+
+<hr>
+#### Champ sd
+
+<hr>
+## Prédictions
+
+
+<hr>
+
+`control.compute=list(config=TRUE)`
+
+```{r,collapse=FALSE,include=FALSE,eval=FALSE}
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(config=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
+```
+
+<hr>
+
+```{r,collapse=FALSE,include=FALSE,eval=FALSE}
+
+nsims<-100
+sims<-inla.posterior.sample(n=nsims,result=m,seed=123)
+
+v<-m$names.fixed
+v 
+
+post<-lapply(v,function(i){
+	 g<-match(i,row.names(sims[[1]]$latent))
+	 do.call(c,lapply(sims,function(i){i$latent[g,1]}))
+})
+names(post)<-v
+
+
+par(mfrow=c(2,2))
+invisible(
+	 lapply(names(post),function(i){
+    p<-post[[i]]	
+	   hist(p,xlab=i,ylab="density",main="")
+	   abline(v=0,lty=3)
+  })
+)
+
+index<-grep("spatial:",row.names(sims[[1]]$latent))
+
+w<-lapply(sims,function(i){
+	 i$latent[index]
+})
+w<-do.call(cbind,w)
+#names(post)<-vars
+
+ysims<-lapply(1:nsims,function(i){
+	 betas<-sapply(post,"[",i)
+  mm<-as.matrix(cbind(Intercept=1,vars))
+	 fixed<-mm %*% betas
+	 spatial<-as.matrix(A) %*% w[,i]
+	 mu<-exp(fixed+spatial)
+	 ysim<-rpois(nrow(d),lambda=mu)
+	 ysim
+})
+
+plot(density(d$SR),col="red",lwd=2)
+lapply(ysims,function(i){
+  lines(density(i),col=gray(0,0.05))	
+})
+
 
 
 
@@ -514,7 +684,14 @@ axis(2)
 
 
 
-```{r}
+
+
+
+
+
+
+
+```{r, include=FALSE,eval=FALSE}
 library(scales)
 d<-read.table("C:/Users/User/Downloads/IrishPh/IrishPh.txt",header=TRUE)
 
@@ -542,11 +719,26 @@ plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Dist
 
 
 d<-read.csv("https://raw.githubusercontent.com/frousseu/ECL749/master/data/frogs.csv",sep=";")
-plot(d$easting,d$northing,col=d$pres.abs+1)
+d$easting<-jitter(d$easting)
+d$northing<-jitter(d$northing)
 
-fit<-glm(pres.abs~1,family="binomial",data=d)
+plot(d$easting,d$northing,col=d$pres.abs+1,asp=1)
 
-v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit))#,breaks=seq(0,20,by=1),max.dist=20)
+fit<-glm(pres.abs~NoOfPools,family="binomial",data=d)
+
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),max.dist=500,breaks=seq(0,500,by=15))#,breaks=seq(0,20,by=1),max.dist=20)
+plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+
+
+# https://doi.org/10.5061/dryad.c2378/2
+
+library(sp)
+d<-read.csv("C:/Users/User/Downloads/presabs_both_IndYears_allvars_final.csv")
+coordinates(d)<-~BCAlbX+BCAlbY
+plot(d,pch=ifelse(d$pres==0,1,16)
+					
+fit<-glm(pres~Elevation+CTI,family="binomial",data=d)
+v<-variog(coords=coordinates(d),data=resid(fit),breaks=seq(0,10000,by=500),max.dist=10000)
 plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 
 
@@ -574,4 +766,35 @@ plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Dist
 
 ## Articles importants
 
+---
+
+Select the menu on the left to expand / collapse table of contents (TOC)
+entries. Press button below to collapse all TOC except the top level headings.
+
+<button id="btnCollapseHeading" onclick="collapseTOC()">Collapse sub-headings</button>
+
+If you only want to collapse level 3 headings press this button.
+
+<button id="btnCollapseLevel3" onclick="collapseLevel3()">Collapse Level 3 only</button>
+
+<script>
+function collapseTOC() {
+  var x = document.getElementsByClassName("tocify-subheader");
+  var i;
+  for (i = 0; i < x.length; i++) {
+      x[i].style.display = "none";
+  }
+}
+
+function collapseLevel3() {
+  var x = document.getElementsByClassName("tocify-subheader");
+  var i;
+  for (i = 0; i < x.length; i++) {
+      if (x[i].getAttribute("data-tag") == "3") {
+        x[i].style.display = "none";
+      }
+  }
+}
+
+</script>
 
