@@ -8,7 +8,7 @@ output:
     fig_height: 5
     fig_width: 6
     number_sections: no
-    code_folding: hide
+    code_folding: show
     toc: yes
     toc_depth: 5
     toc_float:
@@ -119,7 +119,7 @@ h5 {
 </style>
 
 ```{r setup, include=TRUE, echo=FALSE}
-knitr::opts_chunk$set(echo=TRUE,tidy=TRUE,error=TRUE,message=FALSE,warning=FALSE,fig.align="center",collapse=TRUE)
+knitr::opts_chunk$set(echo=TRUE,cache=TRUE,tidy=TRUE,error=TRUE,message=FALSE,warning=FALSE,fig.align="center",collapse=FALSE)
 ```
 
 <br>
@@ -261,15 +261,27 @@ names(d)<-gsub("\\.","",names(d))
 d$northing<-d$LongitudeUTM/1000
 d$easting<-d$LatitudeUTM/1000
 d$Elevationm<-d$Elevationm/1000
-plot(d[,c("SR","Elevationm","TCI")]
+plot(d[,c("SR","Elevationm","TCI")])
 
 ```
 
 ****
 
+```{r,out.width="100%"}
+library(sp)
+library(mapview)
+coordinates(d)<-~easting+northing
+proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs"
+ds<-spTransform(d,CRS("+init=epsg:4326"))
+mapviewOptions(basemaps = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
+mapview(ds,zcol="SR")
+```
+
+****
+
 ```{r}
-m<-glm(SR~poly(Elevationm,2)+TCI,data=d,family=poisson)
-summary(m)
+fit<-glm(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family=poisson)
+summary(fit)
 ```
 
 ****
@@ -277,39 +289,93 @@ summary(m)
 ```{r}
 library(visreg)
 par(mfrow=c(1,2))
-visreg(m,scale="response",rug=FALSE)
+visreg(fit,scale="response",rug=FALSE)
 ```
 
 ****
 
 ```{r}
 library(geoR)
-v<-variog(coords=cbind(d$easting,d$northing),data=resid(m),breaks=seq(0,10,by=0.5),max.dist=10)
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
 plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
 
 ****
 
+## INLA
+
+### Approche bayésienne
+
+****
+
+Bayes' rule
+
+$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
+
+****
+
+Lorsque appliquée aux modèles
+
+$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
+<br><br>
+$data$: données
+$\theta$: paramètres du modèle
+
+### Priors
+
+### LGM
+
+### SPDE
+
+SPDE veut dire **S**tochastic **P**artial **D**ifferential **E**quation
+
+Cette approche se base entre-autres sur une discrétisation du Gaussian Random Field (GRF) par un Gaussian Markov Random Field (GMRF)
+
+Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
+
+##
+
 ```{r}
-library(sp)
-library(mapview)
-coordinates(d)<-~easting+northing
-proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs"
-plot(d)
-ds<-spTransform(d,CRS("+init=epsg:4326"))
-mapview(ds,zcol="SR")
+library(INLA)
+m<-inla(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family="poisson")
+summary(m)
 ```
 
 ****
 
 ```{r}
+m$summary.fixed[,c(1:3,5)]
+cbind(summary(fit)$coef[,1:2],confint(fit))
+```
+
+
+
+# Un exemple de cas
+
+## Cas
+
+## Étapes
+
+- **Mesh**: permet de créer une triangulation qui discrétise le GF
+- **Projector Matrix**: permet de relier les localisations à la grille
+- **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
+- **Spatial Field**: permet de créer le champs spatial
+- **Stack**: permet d'intégrer les différents éléments
+- **Formula**: formulation du modèle
+- **Modèle**: permet de faire tourner le modèle
+
+****
+
+### Mesh
+
+```{r,collapse=FALSE}
 locs<-coordinates(d)
 head(locs)
 ```
 
 ****
 
-```{r}
+```{r,collapse=FALSE}
 library(INLA)
 hull<-inla.nonconvex.hull(locs,convex=-0.05)
 mesh<-inla.mesh.2d(loc=locs,offset=c(0.5,5),max.edge=c(0.5,1.5),cutoff=0.5,boundary=hull)
@@ -317,7 +383,7 @@ mesh<-inla.mesh.2d(loc=locs,offset=c(0.5,5),max.edge=c(0.5,1.5),cutoff=0.5,bound
 
 ****
 
-```{r}
+```{r,collapse=FALSE}
 plot(mesh,asp=1)
 axis(1)
 axis(2)
@@ -326,27 +392,35 @@ points(locs,col="red",pch=16)
 
 ****
 
-```{r}
+### Projector Matrix
+
+```{r,collapse=FALSE}
 A<-inla.spde.make.A(mesh,locs)
 ```
 
 ****
 
-```{r}
-prior.median.sd<-4
-prior.median.range<-1
-spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.median.range,0.5),prior.sigma=c(prior.median.sd,0.5))
+### SPDE
+
+```{r,collapse=FALSE}
+prior.sd<-10
+prior.range<-1
+spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.range,0.5),prior.sigma=c(prior.sd,0.01))
 ```
 
 ****
 
-```{r}
+### Spatial Field
+
+```{r,collapse=FALSE}
 s.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
 ```
 
 ****
 
-```{r}
+### Stack
+
+```{r,collapse=FALSE}
 v<-c("TCI","Elevationm")
 vars<-d@data[,v]
 stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
@@ -354,19 +428,23 @@ stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Int
 
 ****
 
-```{r}
+### Formula
+
+```{r,collapse=FALSE}
 model<-SR~-1+Intercept+Elevationm+I(Elevationm^2)+TCI+f(spatial,model=spde)
 ```
 
 ****
 
-```{r}
+### Modèle
+
+```{r,collapse=FALSE}
 m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(dic=TRUE,waic=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
 ```
 
 ****
 
-```{r}
+```{r,collapse=FALSE}
 res<-inla.spde.result(m,"spatial",spde)
 par(mfrow=c(2,1))
 plot(res$marginals.range.nominal[[1]],
@@ -386,13 +464,15 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 
 ****
 
-```{r}
+```{r,collapse=FALSE}
 par(mfrow=c(2,2))
-lapply(names(m$marginals.fixed),function(i){
-  p<-m$marginals.fixed[[i]]	
-	 plot(p[,1],p[,2],type="l",xlab=i,ylab="density")
-	 abline(v=0,lty=3)
-})
+invisible(
+	 lapply(names(m$marginals.fixed),function(i){
+    p<-m$marginals.fixed[[i]]	
+	   plot(p[,1],p[,2],type="l",xlab=i,ylab="density")
+	   abline(v=0,lty=3)
+  })
+)
 ```
 
 ****
@@ -403,27 +483,72 @@ lapply(names(m$marginals.fixed),function(i){
 ```
 
 
-```{r}
+```{r,collapse=FALSE}
 
 library(fields)
 library(viridisLite)
 
-local.plot.field = function(field, mesh, xlim=c(206,232), ylim=c(3150,3195), ...){
-  stopifnot(length(field) == mesh$n)
-  # - error when using the wrong mesh
-  proj = inla.mesh.projector(mesh, xlim = xlim, 
-                             ylim = ylim, dims=c(300, 300))
-  # - Can project from the mesh onto a 300x300 plotting grid 
-  field.proj = inla.mesh.project(proj, field)
-  # - Do the projection
-  image.plot(list(x = proj$x, y=proj$y, z = field.proj), 
-             xlim = xlim, ylim = ylim, col = viridis(101), ...)  
-}
+# https://haakonbakka.bitbucket.io/btopic108.html#92_plotting_the_spatial_mean_field
 
-local.plot.field(m$summary.random[['spatial']][['mean']], mesh)
-#lines(5+c(-0.5, 0.5)*(res$summary.hyperpar[2, '0.5quant']), c(1,1)*5, lwd=3)
-# - add on the estimated range
-axis(1); axis(2)
+
+xlim<-range(d$easting)
+ylim<-range(d$northing)
+
+# - Can project from the mesh onto a 300x300 plotting grid 
+proj<-inla.mesh.projector(mesh,xlim=xlim,ylim=ylim,dims=c(300,300))
+
+# - Do the projection
+field<-m$summary.random[['spatial']][['mean']]
+field.proj<-inla.mesh.project(proj,field)
+
+
+par(mar=c(2,2,2,2))
+image.plot(list(x=proj$x,y=proj$y,z=field.proj),col=viridis(100),asp=1)  
+axis(1)
+axis(2)
+
+
+
+```
+
+
+
+
+```{r}
+library(scales)
+d<-read.table("C:/Users/User/Downloads/IrishPh/IrishPh.txt",header=TRUE)
+
+d$Easting<-d$Easting/1000
+d$Northing<-d$Northing/1000
+d$Forested<-as.factor(d$Forested)
+
+hist(d$pH)
+plot(d$Easting,d$Northing,cex=rescale(d$pH,to=c(0,2)))
+
+
+fit<-glm(pH~SDI+Altitude+Forested,data=d)
+summary(fit)
+
+library(visreg)
+par(mfrow=c(1,2))
+visreg(fit,scale="response",rug=FALSE)
+
+
+library(geoR)
+v<-variog(coords=cbind(d$Easting,d$Northing),data=resid(fit),breaks=seq(0,100,by=5),max.dist=100)
+plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+
+
+
+
+d<-read.csv("https://raw.githubusercontent.com/frousseu/ECL749/master/data/frogs.csv",sep=";")
+plot(d$easting,d$northing,col=d$pres.abs+1)
+
+fit<-glm(pres.abs~1,family="binomial",data=d)
+
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit))#,breaks=seq(0,20,by=1),max.dist=20)
+plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+
 
 ```
 
@@ -432,74 +557,7 @@ axis(1); axis(2)
 
 
 
-## INLA
 
-### Approche bayésienne
-
-The binomial probability: 
-
-$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
-
-$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
-Où $data$ sont les données et $\theta$ sont les paramètres du modèle. 
-
-
-
-
-### Priors
-
-### LGM
-
-### SPDE
-
-SPDE veut dire **S**tochastic **P**artial **D**ifferential **E**quation
-
-Cette approche se base entre-autres sur une discrétisation du Gaussian Random Field (GRF) par un Gaussian Markov Random Field (GMRF)
-
-Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
-
-# Un exemple de cas
-
-## Cas
-
-## Étapes
-
-- **Mesh**: permet de créer la discrétisation
-- **Projector Matrix**: permet de relier les localisation à la grille
-- **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
-- **Spatial Field**: permet de créer le champs spatial
-- **Stack**: permet d'intégrer les différents éléments
-- **Formula**: formulation du modèle
-- **Modèle**: permet de faire tourner le modèle
-
-
-### Mesh
-
-### Projector Matrix
-
-### SPDE
-
-### Spatial Field
-
-### Stack
-
-### Formula
-
-### Modèle
-
-### Results
-
-# Options
-
-# Fonctions utiles
-
-## Summary
-
-## Predictions
-
-## inla.result
-
-## inla
 
 
 # Exercice 1
