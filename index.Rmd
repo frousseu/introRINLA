@@ -21,7 +21,7 @@ output:
       $items = $('div#TOC li');
       $items.each(function(idx) {
         num_ul = $(this).parentsUntil('#TOC').length;
-        $(this).css({'text-indent': num_ul * 20, 'padding-left': 2, 'padding-bottom': 0, 'padding-top': 0, 'padding-right': 2});
+        $(this).css({'text-indent': num_ul * 10, 'padding-left': 2, 'padding-bottom': 0, 'padding-top': 0, 'padding-right': 2});
       });
 
     });
@@ -331,15 +331,16 @@ summary(fit)
 
 On peut visualiser le modèle avec le package [visreg](https://pbreheny.github.io/visreg/). L'argument `scale` permet d'obtenir les prédictions ous l'échelle de la réponse (et non sous l'échelle *log*).
 
-```{r,fig.width=8,fig.height=5}
+```{r,fig.width=8,fig.height=4}
 library(visreg)
-par(mfrow=c(1,2),mar=c(3,3,0,0))
-visreg(fit,scale="response",rug=FALSE)
+par(mfrow=c(1,2),mar=c(4,4,0,1))
+visreg(fit,"altitude",scale="response")
+visreg(fit,"TCI",scale="response")
 ```
 
 <hr>
 
-Maintenant, plusieurs des parcelles sont très près les unes des autres et on peut se demander si les nombres d'espèces observés sont plus similaires pour les parcelles près les unes des autres. En d'autres mots, reste-t-il de la variation inexpliquée par nos variables explicatives qui pourrait être structurées spatialement? Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du package **geoR**.
+Maintenant, plusieurs des parcelles sont très près les unes des autres et on peut se demander si les nombres d'espèces observés sont plus similaires pour les parcelles près les unes des autres. En d'autres mots, reste-t-il de la variation inexpliquée par nos variables explicatives qui pourrait être structurée spatialement? Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du package **geoR**.
 
 Pour ce faire, on peut premièrement extraire les résidus (variation non-expliquée) de notre modèle et les cartographier afin de déterminer visuellement s'il y a des patrons suggérant la présence de corrélation spatiale. Si les petits résidus ou les grands résidus ont tendance à être ensemble, cela nous suggère qu'il y a potentiellement de la corrélation spatiale.
 
@@ -384,7 +385,7 @@ Il semble donc y avoir une importante corrélation jusqu'à environ 2km, après 
 
 On a donc une corrélation spatiale et il faut donc en tenir compte dans notre analyse! Pour cela, il faut utiliser des méthodes spéciales qui sont disponibles dans les packages **geoR** et **gstat**. Cependant, ces packages peuvent être utilisés avec des modèles gaussiens, mais pas avec les GLM (à part geoRglm). 
 
-INLA facilite grandement l'inclusion d'effets spatiaux notamment dans les GLM ou GLMM auxquels nous sommes habitués.
+INLA facilite grandement l'inclusion d'effets spatiaux notamment dans les GLMs ou GLMMs auxquels nous sommes habitués.
 
 <hr>
 
@@ -565,7 +566,7 @@ mesh<-inla.mesh.2d(loc=locs,offset=c(1,5),max.edge=c(1,3),cutoff=1,boundary=hull
 ```{r,collapse=FALSE,fig.width=8,fig.height=8}
 par(mar=c(0,0,6,0))
 plot(mesh,asp=1)
-points(locs,col=alpha("red",0.6),pch=16,cex=0.7)
+points(locs,col=alpha("black",0.6),pch=16,cex=0.7)
 ```
 
 
@@ -594,70 +595,86 @@ Il faut éviter d'avoir des triangles avec des aigles trop aigus. Autrement, les
 
 ### Projector Matrix
 
-Ceci permet de relier les localisations à la grille.
+Ceci permet de relier les localisations à la grille et d'établir une pondération qui permet d'estimer les valeurs du champs spatial pour chaque localisation. Les localisations situées sur les coins (*vertex*) seront estimées à partir des valeurs de la grille et les localisations à l'intérieur du triangle seront estimées à partir d'une moyenne pondérée calculée en utilisant les trois coins du triangle dans lequel elles se trouvent.
 ```{r,collapse=FALSE}
 A<-inla.spde.make.A(mesh,locs)
 ```
+
+
+```{r,eval=FALSE,include=FALSE}
+par(mar=c(0,0,0,0))
+plot(mesh,asp=1,xlim=c(223,226),ylim=c(3172,3176))
+points(locs,col="red",pch=16,cex=2)
+text(locs,label=1:nrow(locs))
+text(mesh$loc[,1:2],label=1:nrow(mesh$loc))
+```
+
+Dans cet exemple, l'observation en rouge est située à l'intérieur d'un tiangle et les valeurs représentent la pondération qui sera utilisée sur les valeurs de chaque coin pour estimer la valeur de ce point.
+
+```{r,collapse=FALSE,fig.width=7,fig.height=5}
+par(mar=c(0,0,5,0))
+plot(mesh,asp=1,xlim=c(223,226),ylim=c(3172,3176))
+points(locs,pch=16,cex=2)
+i<-889 # ligne contenant la localisation en rouge
+points(locs[i,,drop=FALSE],col="red",pch=16,cex=2)
+w<-which(A[i,]>0) # pondérations associées au point
+points(mesh$loc[w,1:2],label=1:nrow(mesh$loc),pch=1,cex=4,lwd=2,col="red")
+text(mesh$loc[w,1:2],label=round(A[i,w],2),adj=c(-0.6,0.5),font=2,col="red")
+```
+
 
 <hr>
 
 ### SPDE
 
-Ceci permet de définir les éléments du champs de Matérn.
+Ceci permet de définir les éléments du SPDE et les éléments associés aux caractéristiques du champs spatial.
 
 ```{r,collapse=FALSE}
-prior.sd<-10
-prior.range<-1
-spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.range,0.5),prior.sigma=c(prior.sd,0.01))
+spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(2,0.5),prior.sigma=c(5,0.01))
 ```
 
-Ici, nous devons définir les *priors* du champs spatial. L'approche par défaut est d'utiliser des quantiles pour définir les *priors* sur l'étendue (*range*) et l'écart-type (*standard deviation*, sd) associés au champs spatial. Cette approche se base sur l'approche des *Penalized-complexity priors* développée par [Simpson et al. (2017)](https://doi.org/10.1214/16-STS576). En résumé, cette approche permet de pénaliser l'étendue de la corrélation spatiale vers l'infini (ce qui réduit la complexité du phénomène) et la variance vers 0 (ce qui réduit également la complexité du phénomène). 
-
-En pratique, le *prior* pour l'étendue $r$ de la corrélation est spécifié avec $\alpha$ et $r_{0}$:
+L'argument `alpha` est pour spécifier une des paramètres de la fonction de Matérn. Ce paramètre doit être fixé entre 0 et 2. Nous devons également définir les *priors* du champs spatial. L'approche par défaut est d'utiliser des quantiles pour définir les *priors* sur l'étendue (*range*) et l'écart-type (*standard deviation*, sd) associés au champs spatial. Cette façon de faire se base sur l'approche des *Penalized-complexity priors* développée par [Simpson et al. (2017)](https://doi.org/10.1214/16-STS576). En résumé, cette approche permet de pénaliser l'étendue de la corrélation spatiale vers l'infini (ce qui réduit la complexité du phénomène) et la variance vers 0 (ce qui réduit également la complexité du phénomène). En pratique, le *prior* pour l'étendue $r$ de la corrélation est spécifié avec $\alpha$ et $r_{0}$:
 
 $$P(r<r_{0})= \alpha$$
 
-Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$.
-
-Le *prior* pour la variance du champs spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
+Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$. Dans notre cas, `prior.range=c(2,0.5)` veut dire que nous croyons qu'il y a 50% de chances que le l'étendue de la corrélation spatiale soit supérieure à 2km et donc qu'il y a également 50% des chances q'elle soit inférieure à 2km. Le *prior* pour la variance du champs spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
 
 $$P(\sigma>\sigma_{0})= \alpha$$
 
-Où $\alpha$ représente la probabilité que $\sigma$ soit inférieur à $\sigma_{0}$.
-
-
-
-
-
-
-
-
-
+Où $\alpha$ représente la probabilité que $\sigma$ soit inférieur à $\sigma_{0}$. Dans notre cas, cela indique qu'on croit qu'il y a 1% des chances que la variance spatiale en richesse soit supérieure à 5. Ici, il faut nous rappeler que nous travaillons sous l'échelle *log* et que $e^5\approx148$ espèces.
 
 
 <hr>
 
 ### Spatial Field
 
+Ceci permet de définir un index qui sera utile pour spécifier ou récupérer les éléments associés au champs spatial.
+
 ```{r,collapse=FALSE}
-s.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
+spatial.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
 ```
 
 <hr>
 
 ### Stack
 
+Le *stack* est une façon compliquée de fournir les données, les variables et les effets à INLA. Ceci n'est pas essentiel pour des modèles simples, mais ça le devient lorsque les modèles sont plus compliqués ou lorsque l'on veut par exemple générer des prédictions à partir de notre modèle.
+
+
 ```{r,collapse=FALSE}
 d$altitude2<-d$altitude^2
 v<-c("TCI","altitude","altitude2")
-vars<-d@data[,v]
-stack<-inla.stack(data=list(richness=d$richness),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
+X<-data.frame(Intercept=1,(d@data[,v]))
+#X<-as.matrix(X)
+#head(X)
+stack<-inla.stack(data=list(richness=d$richness),A=list(A,1),effects=list(spatial=spatial.index,as.list(X)),tag="est")
 ```
 
 <hr>
 
 ### Formula
 
+On créé la formule décrivant le modèle souhaité. Notez que l'intercept est créé à la mitaine afin de.
 ```{r,collapse=FALSE}
 model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 ```
@@ -666,28 +683,40 @@ model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 
 ### Modèle
 
-```{r,collapse=FALSE}
-m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(dic=TRUE,waic=TRUE,config=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
-```
-
-<hr>
-
-## Extraction 
-
-<hr>
-
-### Summary
+Finalement, on fait tourner le modèle en appelant la fonction `inla` et en fournissant les différents arguments. La spécification de `compute=TRUE` fait en sorte que les distributions postérieures seront calculées pour toutes les observations. La spécification de `config=TRUE` permettra plus loin de faire des simulations et de générer des valeurs aléatoires à partir de notre modèle.
 
 ```{r,collapse=FALSE}
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack),compute=TRUE),control.compute=list(config=TRUE),family="poisson")
 summary(m)
 ```
 
 <hr>
 
-#### Distributions postérieures
+## Visualisations
+
+Le modèle généré (`m`) est un objet complexe contenant énormément d'information où il n'est pas toujours facile de s'y retrouver. Heureusement, comme nous venons de le voir la fonction `summary` peut être utilisée pour un sommaire rapide. Si on veut extraire plus d'informations sur notre modèle, la première étape est probablement d'inspecter les différents éléments de la liste formant `m`.
 
 ```{r,collapse=FALSE}
-par(mfrow=c(2,2))
+names(m)
+```
+
+
+<hr>
+
+### Distributions postérieures
+
+Les premiers éléments qui devraient nous intéresser sont les distributions postérieures des coefficients associés à nos différentes variables. On peut extraire les quantiles de celles-cià partir du sommaire des effets fixes.
+
+```{r,collapse=FALSE}
+m$summary.fixed
+```
+
+<hr>
+
+On peut également représenter graphiquement ces distributions à l'aide des distributions marginales complètes. Comme on peut le voir, tous les coefficients sont relativement loin de zéros.
+
+```{r,collapse=FALSE}
+par(mfrow=c(2,2),mar=c(4,4,1,1))
 invisible(
 	 lapply(names(m$marginals.fixed),function(i){
     p<-m$marginals.fixed[[i]]	
@@ -701,16 +730,36 @@ invisible(
 
 ### Paramètres spatiaux
 
+Le sommaire des paramètres associés au champs spatial s'accèdent par le sommaire des "hyperparamètres" (*hyperparameters*). Avec INLA, les paramètres fixes représentent les paramètres de la régression et tous les paramètres de variances ou associés au champ spatial sont considérés comme des hyperparamètres.
+
 ```{r,collapse=FALSE}
+m$summary.hyperpar
+```
+
+<hr>
+
+On peut également illustrer les distributions postérieures de ces paramètres.
+
+```{r,collapse=FALSE,fig.height=4}
+par(mfrow=c(1,2),mar=c(4,4,1,1))
+invisible(
+	 lapply(names(m$marginals.hyperpar),function(i){
+    p<-m$marginals.hyperpar[[i]]	
+	   plot(p[,1],p[,2],type="l",xlab=i,ylab="density")
+  })
+)
+```
+
+
+```{r,collapse=FALSE,include=FALSE,eval=FALSE}
 res<-inla.spde.result(m,"spatial",spde)
-par(mfrow=c(2,1))
+par(mfrow=c(1,2),mar=c(4,4,1,1))
 plot(res$marginals.range.nominal[[1]],
      type="l", main="Posterior density for range")
 plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
      type="l", main="Posterior density for sd")
 ```
 
-<hr>
 
 ```{r,include=FALSE,echo=FALSE}
 #tmp = inla.tmarginal(function(x) exp(-x), m$internal.marginals.hyperpar[[2]]) 
@@ -719,6 +768,7 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 #lambda = -log(.5)/(1/prior.median.range); lines(xvals, 6*exp(-lambda*xvals), lty='dashed')
 ```
 
+
 ```{r,echo=FALSE,include=FALSE}
 #library(inlabru)
 #spde.posterior(m,"spatial",what="range")
@@ -726,9 +776,11 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 
 <hr>
 
-### Visualisations du champ spatial
+### Champ spatial
 
-```{r,collapse=FALSE}
+Le champs spatial peut être visualiser de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champs sur une grille. Ceci peut être fait de cette façon.
+
+```{r,collapse=FALSE,out.width="100%"}
 
 library(fields)
 library(viridisLite)
@@ -743,25 +795,39 @@ ylim<-range(d$northing)
 proj<-inla.mesh.projector(mesh,xlim=xlim,ylim=ylim,dims=c(300,300))
 
 # - Do the projection
-field<-m$summary.random[['spatial']][['mean']]
-field.proj<-inla.mesh.project(projector=proj,field=field)
+mfield<-m$summary.random[['spatial']][['mean']]
+mfield.proj<-inla.mesh.project(projector=proj,field=mfield)
+sdfield<-m$summary.random[['spatial']][['sd']]
+sdfield.proj<-inla.mesh.project(projector=proj,field=sdfield)
 
 
-par(mar=c(2,2,2,2))
-image.plot(list(x=proj$x,y=proj$y,z=field.proj),col=viridis(100),asp=1)  
+par(mfrow=c(1,2),mar=c(3,3,2,3))
+
+image.plot(list(x=proj$x,y=proj$y,z=mfield.proj),col=viridis(100),asp=1) 
+#plot(spTransform(laspalmas,CRS(proj4string(d))),add=TRUE) # permet d'ajouter le contour de l'île
+axis(1)
+axis(2)
+
+image.plot(list(x=proj$x,y=proj$y,z=sdfield.proj),col=viridis(100),asp=1) 
+#plot(spTransform(laspalmas,CRS(proj4string(d))),add=TRUE) # permet d'ajouter le contour de l'île
 axis(1)
 axis(2)
 
 ```
+
+
+
 
 <hr>
 
 #### Champ moyen
 
 <hr>
+
 #### Champ sd
 
 <hr>
+
 ## Prédictions
 
 
@@ -826,9 +892,6 @@ lapply(ysims,function(i){
 
 
 ```
-
-
-
 
 
 
