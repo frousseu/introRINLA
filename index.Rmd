@@ -30,6 +30,8 @@ output:
 
 <style>
 
+
+
 pre.r {
     background-color: #CCCCCC!important;
     border-color: #EEEEEE!important;
@@ -39,6 +41,16 @@ pre.r {
 pre code {
   font-size: 11pt;
 }
+
+
+.remark-inline-pre.r{ /* ne marche pas */
+  /* background: #F5F5F5; lighter */
+  background: red; /* darker */
+  background-color: red; /* darker */
+  border-radius: 3px;
+  padding: 4px;
+}
+
 
 body {
   font-size: 14pt;
@@ -226,9 +238,156 @@ Nombre de cas de détection de virus du Nil par unités administratives
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
 
+
 <hr>
 
-###
+# Un exemple de cas
+
+```{r, include=FALSE, eval=FALSE}
+# https://doi.org/10.5061/dryad.7sk2g/1
+d<-read.csv("C:/Users/User/Downloads/Irl et al_2015_J Ecol_Dryad.csv",skip=1,sep=";",dec=",")
+names(d)<-gsub("\\.","",names(d))
+d$northing<-d$LongitudeUTM/1000
+d$easting<-d$LatitudeUTM/1000
+d$altitude<-d$Elevationm/1000
+d$richness<-d$SR
+d<-d[,c("Plotname","easting","northing","richness","altitude","TCI")]
+write.csv(d,"C:/Users/User/Downloads/canary_richness.csv",row.names=FALSE)
+```
+
+
+Il s'agit d'un jeu de données concernant le nombre d'espèces de plantes richesse (nb d'espèces) à différents parcelles sur l'île ***Las Palmas*** dans les îles Canaries. Cette île est caractérisée par de fortes variations en altitude en raison de la présence de deux volcans sur l'île. Ces données proviennent d'une étude par [Irl et al. (2015)](https://doi.org/10.1111/1365-2745.12463) et peuvent être téléchargées librement à cette adresse: 
+<br>
+<br>
+[https://doi.org/10.5061/dryad.7sk2g/1](https://doi.org/10.5061/dryad.7sk2g/1)
+<br>
+<br>
+Les exemples qui suivent sont fortement inspirés de [Zuur et al. (2017)](http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation).
+
+La base de données légèrement modifiée peut être téléchargée directement à partir de la page github de l'atelier.
+
+```{r}
+# https://doi.org/10.5061/dryad.7sk2g/1
+
+d<-read.csv("https://raw.githubusercontent.com/frousseu/introRINLA/master/canary_richness.csv")
+head(d)
+
+```
+
+On a donc un identifiant de parcelle, des coordonnées, la richesse en espèce et deux variables. L'altitude est en kilomètre et TCI est un index de complexité topographique.
+
+<hr>
+
+En premier, utilisons les fonctions du package [sp](https://edzer.github.io/sp/) pour convertir le `data.frame` en objet spatial. Ensuite, nous téléchargeons l'île en question avec la fonction `getData` du package [raster](https://www.rspatial.org/spatial/8-rastermanip.html).
+
+```{r}
+library(sp)
+library(raster)
+library(scales)
+
+coordinates(d)<-~easting+northing # convert to spatial
+proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs" # assign projection
+ds<-spTransform(d,CRS("+init=epsg:4326")) # transform to latlon
+
+spa<-getData("GADM",country="ESP",level=2) # download Spain as a shapefile
+laspalmas<-disaggregate(spa)[225,] # subset Las Palmas
+
+par(mar=c(3,3,0,0)) # plot locations ans Las Palmas
+plot(laspalmas,axes=TRUE)
+plot(ds,add=TRUE,col=alpha("darkgreen",0.5),pch=16) # alpha adds tranparency to points
+
+```
+
+<hr>
+
+On peut également visualiser les localisation avec une carte interactive à l'aide du package [mapview](https://r-spatial.github.io/mapview/).
+
+```{r,include=FALSE,eval=FALSE,out.width="100%"}
+library(mapview)
+mapviewOptions(basemaps = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
+mapview(ds,zcol="richness")
+```
+
+
+<hr>
+
+Avant de faire un modèle, on visualise brièvement les données. Le `@data` permet d'extraire le `data.frame` (la table d'attributs) de l'objet `d` qui est maintenant un objet spatial, plus précisément un `SpatialPointsDataFrame`.
+
+```{r,fig.height=7,fig.width=7}
+plot(d@data[,c("richness","altitude","TCI")])
+```
+
+
+<hr>
+
+Utilisons premièrement un simple GLM avec un effet quadratique sur l'altitude.
+
+```{r}
+fit<-glm(richness~altitude+I(altitude^2)+TCI,data=d@data,family=poisson)
+summary(fit)
+```
+
+<hr>
+
+On peut visualiser le modèle avec le package [visreg](https://pbreheny.github.io/visreg/). L'argument `scale` permet d'obtenir les prédictions ous l'échelle de la réponse (et non sous l'échelle *log*).
+
+```{r,fig.width=8,fig.height=5}
+library(visreg)
+par(mfrow=c(1,2),mar=c(3,3,0,0))
+visreg(fit,scale="response",rug=FALSE)
+```
+
+<hr>
+
+Maintenant, plusieurs des parcelles sont très près les unes des autres et on peut se demander si les nombres d'espèces observés sont plus similaires pour les parcelles près les unes des autres. En d'autres mots, reste-t-il de la variation inexpliquée par nos variables explicatives qui pourrait être structurées spatialement? Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du package **geoR**.
+
+Pour ce faire, on peut premièrement extraire les résidus (variation non-expliquée) de notre modèle et les cartographier afin de déterminer visuellement s'il y a des patrons suggérant la présence de corrélation spatiale. Si les petits résidus ou les grands résidus ont tendance à être ensemble, cela nous suggère qu'il y a potentiellement de la corrélation spatiale.
+
+```{r}
+par(mar=c(3,3,0,-0))
+plot(d,cex=rescale(resid(fit),to=c(0.2,3)),col=gray(0.5,0.5),pch=16,axes=TRUE)
+```
+
+Il semble y avoir un tel patron, mais cela n'est pas si facile à confirmer visuellement. On peut vérifier cela de façon plus formelle à l'aide d'un **variogramme**.
+
+Intuitivement, un variogramme représente la variance des différences entre toutes les paires d'observations pour différentes classe de distances.
+
+<!--(mean square difference between each pair of variable divided by 2, semi-variance)-->
+
+```{r}
+library(geoR)
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit))
+plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
+```
+
+Si les observations près dans l'espace se ressemble davantage, on devrait s'attendre à ce que les valeurs de semivariance soient plus faibles pour les distances courtes. En fait, une courbe plate suggère qu'il n'y a pas de corrélation spatiale, alors qu'une courbe qui augmente (et qui atteint possiblement un plateau) suggère qu'il y a corrélation.
+
+Nous avons pris les valeurs par défaut de la fonction `variog` et notamment le nombre de classes de distances qui est relativement faible. Augmentons le nombre de classes afin d'avoir un peu plus de précision sur ce qui se passe à faible distance.
+
+<hr>
+
+```{r}
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,20,by=0.5),max.dist=20)
+plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
+```
+
+On peut voir que la variance est beaucoup moins élevée à de faibles distances. On peut contrôler davantage le variogramme pour inspecter la forme de la relation.
+
+<hr>
+
+```{r}
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
+plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
+```
+
+Il semble donc y avoir une importante corrélation jusqu'à environ 2km, après quoi les points sont plutôt plats, indiquant qu'au delà de cette distance, la corrélation est faible ou inexistante.
+
+On a donc une corrélation spatiale et il faut donc en tenir compte dans notre analyse! Pour cela, il faut utiliser des méthodes spéciales qui sont disponibles dans les packages **geoR** et **gstat**. Cependant, ces packages peuvent être utilisés avec des modèles gaussiens, mais pas avec les GLM (à part geoRglm). 
+
+INLA facilite grandement l'inclusion d'effets spatiaux notamment dans les GLM ou GLMM auxquels nous sommes habitués.
+
+<hr>
+
 
 ## Variogrammes
 
@@ -236,102 +395,66 @@ Différentes valeurs de paramètres
 
 <hr>
 
-### Empirical variogram
+### Variogramme empirique
 
-Intuitivement, c'est la variance des différences entre toutes les paires d'observations pour différentes classe de distances.
+Un variogramme empirique est un variogramme généré à partir de données.
 
-(mean square difference between each pair of variable divided by 2, semi-variance)
+```{r,echo=FALSE}
+v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
+plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
+```
 
 <hr>
 
-### Theoretical variogram
+### Variogramme théorique
 
-Ce sont les modèles qui sont ajustés au variogramme empirique.
+Les variogrammes théoriques sont les modèles qui sont ajustés aux variogrammes empiriques.
 
 ```{r,warning=FALSE}
 library(gstat)
-show.vgms(models=c("Exp","Gau","Sph","Cir"),nugget=0,as.groups=TRUE)
+show.vgms(models=c("Exp","Gau","Sph","Cir","Mat"),as.groups=TRUE)
 ```
 
-Différents types de fonctions
+Différents types de variogrammes:
+
+- `Exp`: exponentiel
+- `Gau`: gaussien
+- `Sph`: sphérique
+- `Cir`: circulaire
+- `Mat`: Matérn
 
 <hr>
+
+Les différents types de variogrammes sont décrits par des paramètres qui peuvent être ajustés.
 
 ```{r,warning=FALSE}
-show.vgms(kappa.range=c(0.5,1,2,5),models="Mat",max=10,as.groups=TRUE)
+show.vgms(kappa.range=c(0.5,1,2,5),models="Mat",nugget=c(0.1,0.2,0.3,0.4),max=10,as.groups=TRUE)
 ```
-
-<hr>
-
-```{r}
-# https://doi.org/10.5061/dryad.7sk2g/1
-
-d<-read.csv("C:/Users/User/Downloads/Irl et al_2015_J Ecol_Dryad.csv",skip=1,sep=";",dec=",")
-names(d)<-gsub("\\.","",names(d))
-d$northing<-d$LongitudeUTM/1000
-d$easting<-d$LatitudeUTM/1000
-d$Elevationm<-d$Elevationm/1000
-plot(d[,c("SR","Elevationm","TCI")])
-
-```
-
 
 
 <hr>
 
-```{r,out.width="100%"}
-library(sp)
-library(mapview)
-coordinates(d)<-~easting+northing
-proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs"
-ds<-spTransform(d,CRS("+init=epsg:4326"))
-mapviewOptions(basemaps = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
-mapview(ds,zcol="SR")
-```
+Un variogramme est souvent décrit par:
 
-<hr>
+- *range* (étendue de la corrélation spatiale)
+- *sill* (le plateau atteint en variance)
+- *nugget* (la variation due à d'autres facteurs)
 
-```{r}
-# https://doi.org/10.5061/dryad.7sk2g/1
-
-library(scales)
-spa<-getData("GADM",country="ESP",level=2)
-laspalmas<-disaggregate(spa)[225,]
-
-plot(laspalmas,axes=TRUE)
-plot(ds,add=TRUE,col=alpha("darkgreen",0.5),pch=16)
-
+```{r,warning=FALSE}
+v<-show.vgms(range=2,nugget=3,sill=6,models="Exp",max=10,as.groups=TRUE,ylim=c(0,11),plot=FALSE)
+plot(semivariance~distance,data=v[-1,],type="l",ylim=c(0,10),col="blue",xaxs="i",yaxs="i",xlab="distance",ylab="semivariance")
+abline(6,0,lty=3)
+abline(9,0,lty=3)
+abline(3,0,lty=3)
+abline(v=2,lty=3)
 ```
 
 
 
-
-<hr>
-
-```{r}
-fit<-glm(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family=poisson)
-summary(fit)
-```
-
-<hr>
-
-```{r}
-library(visreg)
-par(mfrow=c(1,2))
-visreg(fit,scale="response",rug=FALSE)
-```
-
-<hr>
-
-```{r}
-library(geoR)
-v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
-plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
-```
-
-<hr>
 
 ## INLA
+
+INLA veut dire *Integrated Nested Laplace Approximation*. Pour une description "accessible" de la théorie derrière INLA, je vous suggère ce [lien](https://www.precision-analytics.ca/blog-1/inla) dans un blogue.
 
 ### Approche bayésienne
 
@@ -356,9 +479,9 @@ $\theta$: paramètres du modèle
 
 ### SPDE
 
-SPDE veut dire **S**tochastic **P**artial **D**ifferential **E**quation
+SPDE est pour *Stochastic Partial Differential Equation*
 
-Cette approche se base entre-autres sur une discrétisation du Gaussian Random Field (GRF) par un Gaussian Markov Random Field (GMRF)
+Cette approche se base entre autres sur une discrétisation du *Gaussian Random Field* (GRF) par un *Gaussian Markov Random Field* (GMRF)
 
 Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
 
@@ -376,7 +499,7 @@ Utilise une fonction de Matérn pour capturer la dépendance entre les localisat
 
 ```{r}
 library(INLA)
-m<-inla(SR~Elevationm+I(Elevationm^2)+TCI,data=d@data,family="poisson")
+m<-inla(richness~altitude+I(altitude^2)+TCI,data=d@data,family="poisson")
 summary(m)
 ```
 
@@ -450,31 +573,28 @@ points(locs,col=alpha("red",0.6),pch=16,cex=0.7)
 
 `offset` 
 <br>
-<br>
 Spécifie l'étendue de l'extension de la grille au delà des observations et l'extension d'une zone tampon au-delà de cette grille. Cette dernière permet de réduire les effets de bordure lors des estimations. L'étendue de cette zone tampon doit être **au moins aussi grande que l'étendue de la corrélation spatiale**.
 
 `max.edge` 
 <br>
-<br>
-Permet de spécifier les dimensions maximales des triangles de la grille à l'intérieur et à l'extérieur dans la zone tampon. Plus ces triangles sont petits, plus les approximations sont précises, mais plus les calculs sont longs. En général, il n'est pas nécessaire que les triangles dans la zone tampon soient aussi petit qu'à l'intérieur de la grille.
+Permet de spécifier les dimensions maximales des triangles de la grille à l'intérieur et à l'extérieur dans la zone tampon. Plus ces triangles sont petits, plus les approximations sont précises, mais plus les calculs sont longs. En général, il n'est pas nécessaire que les triangles dans la zone tampon soient aussi petits qu'à l'intérieur de la grille.
 
 `cutoff`
 <br>
-<br>
-Par défaut, chaque observation sera utilisée comme un coin d'un triangle. Pour éviter la création de trop nombreux petit triangles, on spécifie une valeur à `cutoff` au0delà de laquelle des points voisins seront ignorés lors de la création des triangles.
+Par défaut, chaque observation sera utilisée comme un coin d'un triangle (*vertex*). Pour éviter la création de trop nombreux petits triangles, on spécifie une valeur à `cutoff` au delà de laquelle des points voisins seront ignorés lors de la création des triangles.
 
 `boundary`
 <br>
-<br>
 Cet argument permet d'utilier l'étendue non-convexe autour des observations.
 
-Il faut éviter d'avoir des triangles avec des aigles trop aigus. Autrement, les estimations sont de moins bonnes qualité.
+Il faut éviter d'avoir des triangles avec des aigles trop aigus. Autrement, les estimations sont de moins bonnes qualités.
 
 <hr>
 
 
 ### Projector Matrix
 
+Ceci permet de relier les localisations à la grille.
 ```{r,collapse=FALSE}
 A<-inla.spde.make.A(mesh,locs)
 ```
@@ -483,11 +603,37 @@ A<-inla.spde.make.A(mesh,locs)
 
 ### SPDE
 
+Ceci permet de définir les éléments du champs de Matérn.
+
 ```{r,collapse=FALSE}
 prior.sd<-10
 prior.range<-1
 spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(prior.range,0.5),prior.sigma=c(prior.sd,0.01))
 ```
+
+Ici, nous devons définir les *priors* du champs spatial. L'approche par défaut est d'utiliser des quantiles pour définir les *priors* sur l'étendue (*range*) et l'écart-type (*standard deviation*, sd) associés au champs spatial. Cette approche se base sur l'approche des *Penalized-complexity priors* développée par [Simpson et al. (2017)](https://doi.org/10.1214/16-STS576). En résumé, cette approche permet de pénaliser l'étendue de la corrélation spatiale vers l'infini (ce qui réduit la complexité du phénomène) et la variance vers 0 (ce qui réduit également la complexité du phénomène). 
+
+En pratique, le *prior* pour l'étendue $r$ de la corrélation est spécifié avec $\alpha$ et $r_{0}$:
+
+$$P(r<r_{0})= \alpha$$
+
+Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$.
+
+Le *prior* pour la variance du champs spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
+
+$$P(\sigma>\sigma_{0})= \alpha$$
+
+Où $\alpha$ représente la probabilité que $\sigma$ soit inférieur à $\sigma_{0}$.
+
+
+
+
+
+
+
+
+
+
 
 <hr>
 
@@ -502,10 +648,10 @@ s.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
 ### Stack
 
 ```{r,collapse=FALSE}
-d$Elevationm2<-d$Elevationm^2
-v<-c("TCI","Elevationm","Elevationm2")
+d$altitude2<-d$altitude^2
+v<-c("TCI","altitude","altitude2")
 vars<-d@data[,v]
-stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
+stack<-inla.stack(data=list(richness=d$richness),A=list(A,1),effects=list(c(s.index,list(Intercept=1)),as.list(vars)),tag="est")
 ```
 
 <hr>
@@ -513,7 +659,7 @@ stack<-inla.stack(data=list(SR=d$SR),A=list(A,1),effects=list(c(s.index,list(Int
 ### Formula
 
 ```{r,collapse=FALSE}
-model<-SR~-1+Intercept+Elevationm+Elevationm2+TCI+f(spatial,model=spde)
+model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 ```
 
 <hr>
@@ -671,7 +817,7 @@ ysims<-lapply(1:nsims,function(i){
 	 ysim
 })
 
-plot(density(d$SR),col="red",lwd=2)
+plot(density(d$richness),col="red",lwd=2)
 lapply(ysims,function(i){
   lines(density(i),col=gray(0,0.05))	
 })
@@ -707,13 +853,13 @@ fit<-glm(pH~SDI+Altitude+Forested,data=d)
 summary(fit)
 
 library(visreg)
-par(mfrow=c(1,2))
+par(mfrow=c(1,2),mar=c(3,3,0,0))
 visreg(fit,scale="response",rug=FALSE)
 
 
 library(geoR)
 v<-variog(coords=cbind(d$Easting,d$Northing),data=resid(fit),breaks=seq(0,100,by=5),max.dist=100)
-plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 
 
 
@@ -727,7 +873,7 @@ plot(d$easting,d$northing,col=d$pres.abs+1,asp=1)
 fit<-glm(pres.abs~NoOfPools,family="binomial",data=d)
 
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),max.dist=500,breaks=seq(0,500,by=15))#,breaks=seq(0,20,by=1),max.dist=20)
-plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 
 
 # https://doi.org/10.5061/dryad.c2378/2
@@ -739,7 +885,7 @@ plot(d,pch=ifelse(d$pres==0,1,16)
 					
 fit<-glm(pres~Elevation+CTI,family="binomial",data=d)
 v<-variog(coords=coordinates(d),data=resid(fit),breaks=seq(0,10000,by=500),max.dist=10000)
-plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
 
 
 ```
@@ -757,6 +903,8 @@ plot(v, main="Empirical Variogram for Species Richness (SR)",type="b",xlab="Dist
 # Exercice 2
 
 # Liens utiles
+
+## Les papiers importants
 
 ## Forum R-INLA
 
