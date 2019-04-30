@@ -167,7 +167,7 @@ Il y a 3 principaux types de données spatiales
 - Aussi connu sous le nom de géostatistiques, kriging.
 
 <center>
-```{r,cache=TRUE,echo=FALSE}
+```{r,cache=TRUE,echo=FALSE,fig.height=3,fig.width=7}
 
 library(weathercan)
 library(raster)
@@ -178,9 +178,9 @@ can<-getData("GADM",country="CAN",level=1)
 qc<-can[can$NAME_1=="Québec",]
 
 par(mar=c(0,0,0,0))
-plot(qc,col="grey80",border=NA)
-points(s$lon,s$lat,pch=16,col="darkred",cex=0.5)
-legend("topright",pch=16,col="darkred",pt.cex=0.5,legend="Station météo",bty="n",cex=1)
+plot(qc,col="grey80",border=NA,ylim=c(45.1,48),xlim=c(-77,-69))
+points(s$lon,s$lat,pch=16,cex=1)
+legend("bottomright",pch=16,pt.cex=1,legend="Station météo",bty="n",cex=1)
 
 ```
 </center>
@@ -195,18 +195,18 @@ Données récoltées à des stations météo
 
 ### Point pattern
 
-**Ce sont des données où la localisation des points dans l'espace est aléatoire**
+**Ce sont des données où c'est la localisation des points dans l'espace qui est aléatoire**
 
 <center>
-```{r,cache=TRUE,echo=FALSE}
+```{r,cache=TRUE,echo=FALSE,fig.height=3,fig.width=7}
 
 library(rgbif)
 o<-occ_search(scientificName="Phragmites australis",limit=5000,publishingCountry="CA",stateProvince="Québec",hasCoordinate=TRUE)
 
 par(mar=c(0,0,0,0))
-plot(qc,col="grey80",border=NA,ylim=c(46,50))
-points(o$data$decimalLongitude,o$data$decimalLatitude,pch=16,col=alpha("darkgreen",0.3),cex=0.5)
-legend("topright",pch=16,col=alpha("darkgreen",0.3),pt.cex=0.5,legend="Mention de Phragmite",bty="n",cex=1)
+plot(qc,col="grey80",border=NA,ylim=c(45.1,48),xlim=c(-77,-69))
+points(o$data$decimalLongitude,o$data$decimalLatitude,pch=16,col=alpha("darkgreen",0.7),cex=1)
+legend("bottomright",pch=16,col=alpha("darkgreen",0.7),pt.cex=1,legend="Mention de Phragmite",bty="n",cex=1)
 
 ```
 </center>
@@ -223,17 +223,17 @@ L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autr
 **Ce sont des données qui sont agrégées au niveau d'entités surfaciques**
 
 <center>
-```{r,out.width="40%",cache=TRUE,echo=FALSE}
+```{r,cache=TRUE,echo=FALSE,fig.height=3,fig.width=7}
 s<-stations[stations$prov=="QC",]
 can<-getData("GADM",country="CAN",level=2)
 qc<-can[can$NAME_1=="Québec",]
 
 par(mar=c(0,0,0,0))
-plot(qc,col="grey80",border="white",ylim=c(45,50),lwd=0.1)
+plot(qc,col="grey80",border="white",ylim=c(45.1,48),xlim=c(-77,-69),lwd=2)
 ```
 </center>
 <br>
-Nombre de cas de détection de virus du Nil par unités administratives
+Proportions d'oiseaux testant positifs au virus du Nil par unités administratives
 
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
@@ -267,11 +267,8 @@ Les exemples qui suivent sont fortement inspirés de [Zuur et al. (2017)](http:/
 La base de données légèrement modifiée peut être téléchargée directement à partir de la page github de l'atelier.
 
 ```{r}
-# https://doi.org/10.5061/dryad.7sk2g/1
-
 d<-read.csv("https://raw.githubusercontent.com/frousseu/introRINLA/master/canary_richness.csv")
 head(d)
-
 ```
 
 On a donc un identifiant de parcelle, des coordonnées, la richesse en espèce et deux variables. L'altitude est en kilomètre et TCI est un index de complexité topographique.
@@ -664,9 +661,7 @@ Le *stack* est une façon compliquée de fournir les données, les variables et 
 ```{r,collapse=FALSE}
 d$altitude2<-d$altitude^2
 v<-c("TCI","altitude","altitude2")
-X<-data.frame(Intercept=1,(d@data[,v]))
-#X<-as.matrix(X)
-#head(X)
+X<-data.frame(Intercept=1,d@data[,v])
 stack<-inla.stack(data=list(richness=d$richness),A=list(A,1),effects=list(spatial=spatial.index,as.list(X)),tag="est")
 ```
 
@@ -686,7 +681,7 @@ model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 Finalement, on fait tourner le modèle en appelant la fonction `inla` et en fournissant les différents arguments. La spécification de `compute=TRUE` fait en sorte que les distributions postérieures seront calculées pour toutes les observations. La spécification de `config=TRUE` permettra plus loin de faire des simulations et de générer des valeurs aléatoires à partir de notre modèle.
 
 ```{r,collapse=FALSE}
-m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack),compute=TRUE),control.compute=list(config=TRUE),family="poisson")
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),family="poisson")
 summary(m)
 ```
 
@@ -740,7 +735,7 @@ m$summary.hyperpar
 
 On peut également illustrer les distributions postérieures de ces paramètres.
 
-```{r,collapse=FALSE,fig.height=4}
+```{r,collapse=FALSE,fig.height=3,fig.width=7}
 par(mfrow=c(1,2),mar=c(4,4,1,1))
 invisible(
 	 lapply(names(m$marginals.hyperpar),function(i){
@@ -780,7 +775,7 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 
 Le champs spatial peut être visualiser de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champs sur une grille. Ceci peut être fait de cette façon.
 
-```{r,collapse=FALSE,out.width="100%"}
+```{r,collapse=FALSE,out.width="80%"}
 
 library(fields)
 library(viridisLite)
@@ -795,45 +790,80 @@ ylim<-range(d$northing)
 proj<-inla.mesh.projector(mesh,xlim=xlim,ylim=ylim,dims=c(300,300))
 
 # - Do the projection
-mfield<-m$summary.random[['spatial']][['mean']]
-mfield.proj<-inla.mesh.project(projector=proj,field=mfield)
-sdfield<-m$summary.random[['spatial']][['sd']]
-sdfield.proj<-inla.mesh.project(projector=proj,field=sdfield)
+mfield<-inla.mesh.project(projector=proj,field=m$summary.random[['spatial']][['mean']])
+sdfield<-inla.mesh.project(projector=proj,field=m$summary.random[['spatial']][['sd']])
 
 
 par(mfrow=c(1,2),mar=c(3,3,2,3))
 
-image.plot(list(x=proj$x,y=proj$y,z=mfield.proj),col=viridis(100),asp=1) 
-#plot(spTransform(laspalmas,CRS(proj4string(d))),add=TRUE) # permet d'ajouter le contour de l'île
+image.plot(list(x=proj$x,y=proj$y,z=mfield),col=viridis(100),asp=1) 
 axis(1)
 axis(2)
 
-image.plot(list(x=proj$x,y=proj$y,z=sdfield.proj),col=viridis(100),asp=1) 
-#plot(spTransform(laspalmas,CRS(proj4string(d))),add=TRUE) # permet d'ajouter le contour de l'île
+image.plot(list(x=proj$x,y=proj$y,z=sdfield),col=viridis(100),asp=1) 
 axis(1)
 axis(2)
 
 ```
 
 
-
-
-<hr>
-
-#### Champ moyen
-
-<hr>
-
-#### Champ sd
-
 <hr>
 
 ## Prédictions
 
+Les prédictions dans INLA sont générées en soumettant des observations pour lesquelles la variable réponse est `NA` (dans notre cas, `richness=NA`). Si on utilise l'argument `compute=TRUE`, INLA se chargera de calculer des distributions postérieures pour l'ensemble des valeurs avec `NA`. Cela peut nous permettre par exemple de soumettre des valeurs d'altitude pour étudier son effet sur la richesse. 
 
-<hr>
+On génère 50 valeurs d'altitude entre les valeurs minimales et maximales.
 
-`control.compute=list(config=TRUE)`
+```{r}
+n<-50
+x<-seq(min(d$altitude),max(d$altitude),length.out=n)
+newX<-data.frame(Intercept=1,TCI=mean(d$TCI),altitude=x,altitude2=x^2)
+```
+
+Pour l'exercice, on va assumer que l'effet spatial est constant en prenant un endroit quelconque sur l'île. On répète cette localité autant de fois que le nombre de valeurs d'altitude. Idéalement, il serait plus logique de ne pas tenir compte de l'effet spatial dans les prédictions, mais cela complexifie passablement le code nécessaire.
+
+```{r}
+newlocs<-matrix(c(224,3175),ncol=2)[rep(1,n),]
+```
+
+On associe la localisation fictive à la grille.
+
+```{r}
+A.pred<-inla.spde.make.A(mesh=mesh,loc=newlocs)
+```
+
+On construit une *stack* pour fournir les valeurs à prédires et on la joint à celle générée plus haut qui contient les données en tant que tel. On spécifie `tag=pred` ce qui va nous permettre d'identifier les lignes contenant les prédictions.
+
+```{r}
+stack.pred<-inla.stack(data=list(richness=NA),A=list(A.pred,1),effects=list(spatial=spatial.index,as.list(newX)),tag="pred")
+stack.full<-inla.stack(stack,stack.pred)
+```
+
+Avec ce `tag=pred`, on construit un index qui nous permettra de récupérer les lignes contenant les prédictions.
+
+```{r}
+index.pred<-inla.stack.index(stack.full,tag="pred")$data
+```
+
+Finalement, on fait tourner notre modèle en prenant soin de spécifier `compute=TRUE` pour que INLA calcule les distributions postérieures. On spécifie également `link=1` pour s'assurer que INLA retransforme les valeurs sous l'échelle du nombre d'espèces et non sous l'échelle *log*.
+
+```{r}
+m<-inla(model,data=inla.stack.data(stack.full),control.predictor=list(A=inla.stack.A(stack.full),compute=TRUE,link=1),family="poisson")
+```
+
+On récupère les valeurs prédites à partir du sommaire des valeurs prédites (`summary.fitted.values`) en utilisant l'index créé plus haut.
+
+```{r}
+
+p<-m$summary.fitted.values[index.pred,c("0.025quant","mean","0.975quant")]
+
+plot(x,p[,"mean"],ylim=range(unlist(p)),type="l",xlab="Altitude en km",ylab="Richesse")
+lines(x,p[,"0.025quant"],lty=3)
+lines(x,p[,"0.975quant"],lty=3)
+
+```
+
 
 ```{r,collapse=FALSE,include=FALSE,eval=FALSE}
 m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),control.compute=list(config=TRUE),control.inla=list(int.strategy="eb"),family="poisson")
@@ -901,54 +931,72 @@ lapply(ysims,function(i){
 
 
 ```{r, include=FALSE,eval=FALSE}
-library(scales)
-d<-read.table("C:/Users/User/Downloads/IrishPh/IrishPh.txt",header=TRUE)
 
-d$Easting<-d$Easting/1000
-d$Northing<-d$Northing/1000
-d$Forested<-as.factor(d$Forested)
+library(gcKrig)
 
-hist(d$pH)
-plot(d$Easting,d$Northing,cex=rescale(d$pH,to=c(0,2)))
+set.seed(1234)
+xloc <- runif(200)
+yloc <- runif(200)
+sims <- simgc(locs = cbind(xloc,yloc), sim.n = 1, marginal = negbin.gc(mu = 5, od = 0),
+														corr = matern.gc(range = 0.1, kappa = 0.2, nugget = 0.0))
 
+d<-data.frame(counts=sims$data,xloc,yloc,x=rnorm(100))
+plot(d$xloc,d$yloc,cex=d$counts)
 
-fit<-glm(pH~SDI+Altitude+Forested,data=d)
-summary(fit)
+fit<-glm(counts~x,family="poisson",data=d)
 
-library(visreg)
-par(mfrow=c(1,2),mar=c(3,3,0,0))
-visreg(fit,scale="response",rug=FALSE)
+v<-variog(coords=cbind(d$xloc,d$yloc),data=resid(fit),max.dist=0.9,breaks=seq(0,0.9,length.out=45))#,breaks=seq(0,20,by=1),max.dist=20)
+plot(v,main="Variogramme pres.abs",type="b",xlab="Distance(km)",ylab="Semivariance")
 
-
-library(geoR)
-v<-variog(coords=cbind(d$Easting,d$Northing),data=resid(fit),breaks=seq(0,100,by=5),max.dist=100)
-plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+locs<-cbind(d$xloc,d$yloc)
 
 
+#hull<-inla.nonconvex.hull(locs,convex=-0.15)
+mesh<-inla.mesh.2d(loc=locs,offset=c(0.05,0.3),max.edge=c(0.025,0.075),cutoff=0.025)#,boundary=hull)
+plot(mesh,asp=1)
+points(locs,pch=16)
+
+A<-inla.spde.make.A(mesh,locs)
+
+spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(0.1,0.5),prior.sigma=c(1,0.5))
+
+spatial.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
 
 
-d<-read.csv("https://raw.githubusercontent.com/frousseu/ECL749/master/data/frogs.csv",sep=";")
-d$easting<-jitter(d$easting)
-d$northing<-jitter(d$northing)
-
-plot(d$easting,d$northing,col=d$pres.abs+1,asp=1)
-
-fit<-glm(pres.abs~NoOfPools,family="binomial",data=d)
-
-v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),max.dist=500,breaks=seq(0,500,by=15))#,breaks=seq(0,20,by=1),max.dist=20)
-plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+v<-c("x")
+X<-data.frame(Intercept=1,d[,v,drop=FALSE])
+stack<-inla.stack(data=list(counts=d$counts),A=list(A,1),effects=list(spatial=spatial.index,as.list(X)),tag="est")
 
 
-# https://doi.org/10.5061/dryad.c2378/2
+model<-counts~-1+Intercept+x+f(spatial,model=spde)
 
-library(sp)
-d<-read.csv("C:/Users/User/Downloads/presabs_both_IndYears_allvars_final.csv")
-coordinates(d)<-~BCAlbX+BCAlbY
-plot(d,pch=ifelse(d$pres==0,1,16)
-					
-fit<-glm(pres~Elevation+CTI,family="binomial",data=d)
-v<-variog(coords=coordinates(d),data=resid(fit),breaks=seq(0,10000,by=500),max.dist=10000)
-plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab="Distance (km)",ylab="Semivariance") 
+m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),family="poisson")
+summary(m)
+
+
+
+xlim <- range(d$xloc)
+ylim <- range(d$yloc)
+
+# - Can project from the mesh onto a 300x300 plotting grid
+proj <- inla.mesh.projector(mesh, xlim = xlim, ylim = ylim, dims = c(300, 300))
+
+# - Do the projection
+mfield <- inla.mesh.project(projector = proj, field = m$summary.random[["spatial"]][["mean"]])
+sdfield <- inla.mesh.project(projector = proj, field = m$summary.random[["spatial"]][["sd"]])
+
+
+par(mfrow = c(1, 2), mar = c(3, 3, 2, 3))
+
+image.plot(list(x = proj$x, y = proj$y, z = mfield), col = viridis(100), asp = 1)
+axis(1)
+axis(2)
+points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
+
+image.plot(list(x = proj$x, y = proj$y, z = sdfield), col = viridis(100), asp = 1)
+axis(1)
+axis(2)
+points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
 
 
 ```
@@ -956,26 +1004,18 @@ plot(v, main="Empirical Variogram for Species Richness (richness)",type="b",xlab
 
 
 
-
-
-
-
-
 # Exercice 1
 
-# Exercice 2
-
 # Liens utiles
-
-## Les papiers importants
-
-## Forum R-INLA
 
 ## Livres en ligne
 
 ## Livres
 
 ## Articles importants
+
+## Forum R-INLA
+
 
 ---
 
