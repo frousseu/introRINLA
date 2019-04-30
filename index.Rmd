@@ -156,7 +156,7 @@ Il y a 3 principaux types de données spatiales
 
 - Données géostatistiques
 - Données de points (point pattern)
-- Données d'aires (areal data or lattice data
+- Données d'aires (*areal data* or *lattice data*)
 
 <hr>
 
@@ -164,7 +164,7 @@ Il y a 3 principaux types de données spatiales
 
 **Ce sont des données mesurées à des points fixes dans l'espace**
 
-- Aussi connu sous le nom de géostatistiques, kriging.
+- Aussi connu sous le nom de géostatistiques ou *kriging*.
 
 <center>
 ```{r,cache=TRUE,echo=FALSE,fig.height=3,fig.width=7}
@@ -185,7 +185,7 @@ legend("bottomright",pch=16,pt.cex=1,legend="Station météo",bty="n",cex=1)
 ```
 </center>
 <br>
-Données récoltées à des stations météo
+Données récoltées à des stations météo (température, précipitations, etc.).
 
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="", width = "4%">
 [geoR](http://www.leg.ufpr.br/geoR/), [gstat](https://r-spatial.github.io/gstat/), [nlme](https://CRAN.R-project.org/package=nlme), [glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html), [R-INLA](http://www.r-inla.org/)
@@ -193,7 +193,7 @@ Données récoltées à des stations météo
 
 <hr>
 
-### Point pattern
+### Patrons de points
 
 **Ce sont des données où c'est la localisation des points dans l'espace qui est aléatoire**
 
@@ -211,14 +211,14 @@ legend("bottomright",pch=16,col=alpha("darkgreen",0.7),pt.cex=1,legend="Mention 
 ```
 </center>
 <br>
-L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autralis*)
+L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autralis*).
 
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spatstat](http://spatstat.org/), [R-INLA](http://www.r-inla.org/)
 
 <hr>
 
-### Areal data
+### Données surfaciques
 
 **Ce sont des données qui sont agrégées au niveau d'entités surfaciques**
 
@@ -233,7 +233,7 @@ plot(qc,col="grey80",border="white",ylim=c(45.1,48),xlim=c(-77,-69),lwd=2)
 ```
 </center>
 <br>
-Proportions d'oiseaux testant positifs au virus du Nil par unités administratives
+Proportions d'oiseaux testant positifs au virus du Nil par unités administratives.
 
 <img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/Rlogo.png" alt="Upside-down sloths are so cute", width = "4%">
 [spdep](https://r-spatial.github.io/spdep/), [R-INLA](http://www.r-inla.org/)
@@ -287,7 +287,7 @@ proj4string(d)<-"+proj=utm +zone=28 +ellps=WGS84 +datum=WGS84 +units=km +no_defs
 ds<-spTransform(d,CRS("+init=epsg:4326")) # transform to latlon
 
 spa<-getData("GADM",country="ESP",level=2) # download Spain as a shapefile
-laspalmas<-disaggregate(spa)[225,] # subset Las Palmas
+laspalmas<-disaggregate(spa)[221,] # subset Las Palmas
 
 par(mar=c(3,3,0,0)) # plot locations ans Las Palmas
 plot(laspalmas,axes=TRUE)
@@ -299,7 +299,7 @@ plot(ds,add=TRUE,col=alpha("darkgreen",0.5),pch=16) # alpha adds tranparency to 
 
 On peut également visualiser les localisation avec une carte interactive à l'aide du package [mapview](https://r-spatial.github.io/mapview/).
 
-```{r,include=FALSE,eval=FALSE,out.width="100%"}
+```{r,include=TRUE,eval=TRUE,out.width="100%"}
 library(mapview)
 mapviewOptions(basemaps = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
 mapview(ds,zcol="richness")
@@ -486,12 +486,11 @@ Utilise une fonction de Matérn pour capturer la dépendance entre les localisat
 
 <hr>
 
-<!--
 <figure>
-<img src="C:/Users/User/Documents/GitHub/introRINLA/approachSPDE_Zuur.jpg" alt="", width = "100%">
+<img src="C:/Users/User/Documents/GitHub/introRINLA/approachSPDE_Zuur.png" alt="", width = "100%">
 <figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
 </figure>
--->
+
 
 ##
 
@@ -521,7 +520,7 @@ L'estimation d'un modèle avec un effet spatial avec INLA requiert de passer par
 - **Mesh**: permet de créer une triangulation qui discrétise le GF
 - **Projector Matrix**: permet de relier les localisations à la grille
 - **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
-- **Spatial Field**: permet de créer le champs spatial
+- **Spatial Field**: permet de créer le champ spatial
 - **Stack**: permet d'intégrer les différents éléments
 - **Formula**: formulation du modèle
 - **Modèle**: permet de faire tourner le modèle
@@ -530,18 +529,17 @@ L'estimation d'un modèle avec un effet spatial avec INLA requiert de passer par
 
 Voici un résumé graphique de ces différentes étapes avec les fonction associées.
 
-<!--
 <figure>
-<img src="C:/Users/User/Documents/GitHub/introRINLA/stepsSPDE_Zuur.jpg" alt="", width = "100%">
+<img src="C:/Users/User/Documents/GitHub/introRINLA/stepsSPDE_Zuur.png" alt="", width = "100%">
 <figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
 </figure>
--->
+
 
 <hr>
 
 ### Mesh
 
-La première étape consiste à créer une grille (*mesh*) qui va être utilisée pour approximer le champs Gaussien. En premier, il faut obtenir les localisations.
+La première étape consiste à créer une grille (*mesh*) qui va être utilisée pour approximer le champ Gaussien. En premier, il faut obtenir les localisations.
 
 ```{r,collapse=FALSE}
 locs<-coordinates(d)
@@ -592,7 +590,7 @@ Il faut éviter d'avoir des triangles avec des aigles trop aigus. Autrement, les
 
 ### Projector Matrix
 
-Ceci permet de relier les localisations à la grille et d'établir une pondération qui permet d'estimer les valeurs du champs spatial pour chaque localisation. Les localisations situées sur les coins (*vertex*) seront estimées à partir des valeurs de la grille et les localisations à l'intérieur du triangle seront estimées à partir d'une moyenne pondérée calculée en utilisant les trois coins du triangle dans lequel elles se trouvent.
+Ceci permet de relier les localisations à la grille et d'établir une pondération qui permet d'estimer les valeurs du champ spatial pour chaque localisation. Les localisations situées sur les coins (*vertex*) seront estimées à partir des valeurs de la grille et les localisations à l'intérieur du triangle seront estimées à partir d'une moyenne pondérée calculée en utilisant les trois coins du triangle dans lequel elles se trouvent.
 ```{r,collapse=FALSE}
 A<-inla.spde.make.A(mesh,locs)
 ```
@@ -624,17 +622,17 @@ text(mesh$loc[w,1:2],label=round(A[i,w],2),adj=c(-0.6,0.5),font=2,col="red")
 
 ### SPDE
 
-Ceci permet de définir les éléments du SPDE et les éléments associés aux caractéristiques du champs spatial.
+Ceci permet de définir les éléments du SPDE et les éléments associés aux caractéristiques du champ spatial.
 
 ```{r,collapse=FALSE}
 spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(2,0.5),prior.sigma=c(5,0.01))
 ```
 
-L'argument `alpha` est pour spécifier une des paramètres de la fonction de Matérn. Ce paramètre doit être fixé entre 0 et 2. Nous devons également définir les *priors* du champs spatial. L'approche par défaut est d'utiliser des quantiles pour définir les *priors* sur l'étendue (*range*) et l'écart-type (*standard deviation*, sd) associés au champs spatial. Cette façon de faire se base sur l'approche des *Penalized-complexity priors* développée par [Simpson et al. (2017)](https://doi.org/10.1214/16-STS576). En résumé, cette approche permet de pénaliser l'étendue de la corrélation spatiale vers l'infini (ce qui réduit la complexité du phénomène) et la variance vers 0 (ce qui réduit également la complexité du phénomène). En pratique, le *prior* pour l'étendue $r$ de la corrélation est spécifié avec $\alpha$ et $r_{0}$:
+L'argument `alpha` est pour spécifier une des paramètres de la fonction de Matérn. Ce paramètre doit être fixé entre 0 et 2. Nous devons également définir les *priors* du champ spatial. L'approche par défaut est d'utiliser des quantiles pour définir les *priors* sur l'étendue (*range*) et l'écart-type (*standard deviation*, sd) associés au champ spatial. Cette façon de faire se base sur l'approche des *Penalized-complexity priors* développée par [Simpson et al. (2017)](https://doi.org/10.1214/16-STS576). En résumé, cette approche permet de pénaliser l'étendue de la corrélation spatiale vers l'infini (ce qui réduit la complexité du phénomène) et la variance vers 0 (ce qui réduit également la complexité du phénomène). En pratique, le *prior* pour l'étendue $r$ de la corrélation est spécifié avec $\alpha$ et $r_{0}$:
 
 $$P(r<r_{0})= \alpha$$
 
-Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$. Dans notre cas, `prior.range=c(2,0.5)` veut dire que nous croyons qu'il y a 50% de chances que le l'étendue de la corrélation spatiale soit supérieure à 2km et donc qu'il y a également 50% des chances q'elle soit inférieure à 2km. Le *prior* pour la variance du champs spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
+Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$. Dans notre cas, `prior.range=c(2,0.5)` veut dire que nous croyons qu'il y a 50% de chances que le l'étendue de la corrélation spatiale soit supérieure à 2km et donc qu'il y a également 50% des chances q'elle soit inférieure à 2km. Le *prior* pour la variance du champ spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
 
 $$P(\sigma>\sigma_{0})= \alpha$$
 
@@ -645,7 +643,7 @@ Où $\alpha$ représente la probabilité que $\sigma$ soit inférieur à $\sigma
 
 ### Spatial Field
 
-Ceci permet de définir un index qui sera utile pour spécifier ou récupérer les éléments associés au champs spatial.
+Ceci permet de définir un index qui sera utile pour spécifier ou récupérer les éléments associés au champ spatial.
 
 ```{r,collapse=FALSE}
 spatial.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
@@ -725,7 +723,7 @@ invisible(
 
 ### Paramètres spatiaux
 
-Le sommaire des paramètres associés au champs spatial s'accèdent par le sommaire des "hyperparamètres" (*hyperparameters*). Avec INLA, les paramètres fixes représentent les paramètres de la régression et tous les paramètres de variances ou associés au champ spatial sont considérés comme des hyperparamètres.
+Le sommaire des paramètres associés au champ spatial s'accèdent par le sommaire des "hyperparamètres" (*hyperparameters*). Avec INLA, les paramètres fixes représentent les paramètres de la régression et tous les paramètres de variances ou associés au champ spatial sont considérés comme des hyperparamètres.
 
 ```{r,collapse=FALSE}
 m$summary.hyperpar
@@ -773,7 +771,7 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 
 ### Champ spatial
 
-Le champs spatial peut être visualiser de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champs sur une grille. Ceci peut être fait de cette façon.
+Le champ spatial peut être visualiser de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champ sur une grille. Ceci peut être fait de cette façon.
 
 ```{r,collapse=FALSE,out.width="80%"}
 
@@ -1008,44 +1006,44 @@ points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
 
 # Liens utiles
 
-## Livres en ligne
-
 ## Livres
+
+<br>
+[Advanced Spatial Modeling with Stochastic Partial Differential Equations Using R and INLA](https://becarioprecario.bitbucket.io/spde-gitbook/) by Krainski et al. (2019). Disponible en ligne.
+
+<br>
+[Bayesian inference with INLA and R-INLA](https://becarioprecario.bitbucket.io/inla-gitbook/) by Gómez-Rubio (2019). Disponible en ligne.
+
+<br>
+Une liste de livres sur [http://www.r-inla.org/books](http://www.r-inla.org/books)
+
 
 ## Articles importants
 
-## Forum R-INLA
+<br>
+Ces articles sont généralement très avancés et difficiles à comprendre. Le premier est peu peu plus accessible que les autres et est un bon point de départ. Les livres mentionnés plus haut et les différents exemples sur le site de R-INLA sont généralement de meilleurs sources pour se familiariser avec R-INLA.
+
+<br>
+[Spatial modeling with R‐INLA: A review](https://doi.org/10.1002/wics.1443) by Bakka et al. (2018)
+<br>
+<br>
+[Bayesian Computing with INLA: A Review](https://doi.org/10.1146/annurev-statistics-060116-054045) by Rue et al. (2017)
+<br>
+<br>
+[Approximate Bayesian inference for latent Gaussian models by using integrated nested Laplace approximations](https://doi.org/10.1111/j.1467-9868.2008.00700.x) by Rue, Martino et Chopin (2009)
+<br>
+<br>
+[An explicit link between Gaussian fields and Gaussian Markov random fields: the stochastic partial differential equation approach](https://doi.org/10.1111/j.1467-9868.2011.00777.x) by Lindgren, Rue et Lindström (2011)
 
 
----
+## Site et forum de R-INLA
 
-Select the menu on the left to expand / collapse table of contents (TOC)
-entries. Press button below to collapse all TOC except the top level headings.
+<br>
+[http://www.r-inla.org/](http://www.r-inla.org/)
 
-<button id="btnCollapseHeading" onclick="collapseTOC()">Collapse sub-headings</button>
+## Blog
 
-If you only want to collapse level 3 headings press this button.
-
-<button id="btnCollapseLevel3" onclick="collapseLevel3()">Collapse Level 3 only</button>
-
-<script>
-function collapseTOC() {
-  var x = document.getElementsByClassName("tocify-subheader");
-  var i;
-  for (i = 0; i < x.length; i++) {
-      x[i].style.display = "none";
-  }
-}
-
-function collapseLevel3() {
-  var x = document.getElementsByClassName("tocify-subheader");
-  var i;
-  for (i = 0; i < x.length; i++) {
-      if (x[i].getAttribute("data-tag") == "3") {
-        x[i].style.display = "none";
-      }
-  }
-}
-
-</script>
-
+<br>
+Une introduction "accessible" à INLA (mais tout de même assez théorique!):
+<br>
+[A gentle INLA tutorial](https://www.precision-analytics.ca/blog-1/inla)
