@@ -132,10 +132,10 @@ h5 {
 
 hr {
     border: none;
-    height: 10px;
+    height: 180px;
     /* Set the hr color */
-    color: grey; /* old IE */
-    background-color: grey; /* Modern Browsers */
+    color: white; /* old IE */
+    background-color: white; /* Modern Browsers */
 }
 
 </style>
@@ -145,12 +145,24 @@ knitr::opts_chunk$set(echo=TRUE,cache=TRUE,tidy=TRUE,error=TRUE,message=FALSE,wa
 ```
 
 <br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 
-# Introduction
+#
 
 <hr>
 
-## Types de données
+# Types de données
 
 Il y a 3 principaux types de données spatiales
 
@@ -160,7 +172,7 @@ Il y a 3 principaux types de données spatiales
 
 <hr>
 
-### Données géostatistiques
+## Données géostatistiques
 
 **Ce sont des données mesurées à des points fixes dans l'espace**
 
@@ -193,7 +205,7 @@ Données récoltées à des stations météo (température, précipitations, etc
 
 <hr>
 
-### Patrons de points
+## Patrons de points
 
 **Ce sont des données où c'est la localisation des points dans l'espace qui est aléatoire**
 
@@ -218,7 +230,7 @@ L'ensemble des mentions d'occurrence pour la Phragmite commune (*Phragmites autr
 
 <hr>
 
-### Données surfaciques
+## Données surfaciques
 
 **Ce sont des données qui sont agrégées au niveau d'entités surfaciques**
 
@@ -256,7 +268,7 @@ write.csv(d,"C:/Users/User/Downloads/canary_richness.csv",row.names=FALSE)
 ```
 
 
-Il s'agit d'un jeu de données concernant le nombre d'espèces de plantes richesse (nb d'espèces) à différents parcelles sur l'île ***Las Palmas*** dans les îles Canaries. Cette île est caractérisée par de fortes variations en altitude en raison de la présence de deux volcans sur l'île. Ces données proviennent d'une étude par [Irl et al. (2015)](https://doi.org/10.1111/1365-2745.12463) et peuvent être téléchargées librement à cette adresse: 
+Nous allons nous concentrer aujourd'hui sur jeu de données concernant le nombre d'espèces de plantes (richesse) à différentes parcelles sur l'île *Las Palmas* dans les îles Canaries. Cette île est caractérisée par de fortes variations en altitude en raison de la présence de deux volcans sur l'île. Ces données proviennent d'une étude par [Irl et al. (2015)](https://doi.org/10.1111/1365-2745.12463) et peuvent être téléchargées librement à cette adresse: 
 <br>
 <br>
 [https://doi.org/10.5061/dryad.7sk2g/1](https://doi.org/10.5061/dryad.7sk2g/1)
@@ -264,18 +276,19 @@ Il s'agit d'un jeu de données concernant le nombre d'espèces de plantes riches
 <br>
 Les exemples qui suivent sont fortement inspirés de [Zuur et al. (2017)](http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation).
 
-La base de données légèrement modifiée peut être téléchargée directement à partir de la page github de l'atelier.
+La base de données légèrement modifiée peut être téléchargée directement à partir de la page GitHub de l'atelier.
 
 ```{r}
 d<-read.csv("https://raw.githubusercontent.com/frousseu/introRINLA/master/canary_richness.csv")
 head(d)
 ```
 
-On a donc un identifiant de parcelle, des coordonnées, la richesse en espèce et deux variables. L'altitude est en kilomètre et TCI est un index de complexité topographique.
+On a donc un identifiant de parcelle, des coordonnées, la richesse en espèces et deux variables. L'altitude est en kilomètre et TCI est un index de complexité topographique.
 
+## Inspection des données
 <hr>
 
-En premier, utilisons les fonctions du package [sp](https://edzer.github.io/sp/) pour convertir le `data.frame` en objet spatial. Ensuite, nous téléchargeons l'île en question avec la fonction `getData` du package [raster](https://www.rspatial.org/spatial/8-rastermanip.html).
+En premier, utilisons les fonctions du package [sp](https://edzer.github.io/sp/) pour convertir le `data.frame` en objet spatial. Ensuite, nous téléchargeons l'île en question avec la fonction `getData` du package [raster](https://www.rspatial.org/spatial/8-rastermanip.html) pour la visualisation.
 
 ```{r}
 library(sp)
@@ -308,14 +321,15 @@ mapview(ds,zcol="richness")
 
 <hr>
 
-Avant de faire un modèle, on visualise brièvement les données. Le `@data` permet d'extraire le `data.frame` (la table d'attributs) de l'objet `d` qui est maintenant un objet spatial, plus précisément un `SpatialPointsDataFrame`.
+Avant de faire un modèle, on visualise brièvement les données. Le `@data` dans le code suivant permet d'extraire le `data.frame` (la table d'attributs) de l'objet `d` qui est maintenant un objet spatial, plus précisément un `SpatialPointsDataFrame`.
 
 ```{r,fig.height=7,fig.width=7}
 plot(d@data[,c("richness","altitude","TCI")])
 ```
 
-
 <hr>
+
+## Un simple GLM
 
 Utilisons premièrement un simple GLM avec un effet quadratique sur l'altitude.
 
@@ -326,7 +340,7 @@ summary(fit)
 
 <hr>
 
-On peut visualiser le modèle avec le package [visreg](https://pbreheny.github.io/visreg/). L'argument `scale` permet d'obtenir les prédictions ous l'échelle de la réponse (et non sous l'échelle *log*).
+On peut visualiser le modèle avec le package [visreg](https://pbreheny.github.io/visreg/). L'argument `scale` permet d'obtenir les prédictions sous l'échelle de la réponse (et non sous l'échelle *log*).
 
 ```{r,fig.width=8,fig.height=4}
 library(visreg)
@@ -337,7 +351,9 @@ visreg(fit,"TCI",scale="response")
 
 <hr>
 
-Maintenant, plusieurs des parcelles sont très près les unes des autres et on peut se demander si les nombres d'espèces observés sont plus similaires pour les parcelles près les unes des autres. En d'autres mots, reste-t-il de la variation inexpliquée par nos variables explicatives qui pourrait être structurée spatialement? Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du package **geoR**.
+## Inspections des résidus
+
+Maintenant, plusieurs des parcelles sont très près les unes des autres et on peut se demander si les nombres d'espèces observés sont plus similaires pour les parcelles près les unes des autres. En d'autres mots, reste-t-il de la variation inexpliquée par nos variables explicatives qui pourrait être structurée spatialement? 
 
 Pour ce faire, on peut premièrement extraire les résidus (variation non-expliquée) de notre modèle et les cartographier afin de déterminer visuellement s'il y a des patrons suggérant la présence de corrélation spatiale. Si les petits résidus ou les grands résidus ont tendance à être ensemble, cela nous suggère qu'il y a potentiellement de la corrélation spatiale.
 
@@ -346,9 +362,11 @@ par(mar=c(3,3,0,-0))
 plot(d,cex=rescale(resid(fit),to=c(0.2,3)),col=gray(0.5,0.5),pch=16,axes=TRUE)
 ```
 
-Il semble y avoir un tel patron, mais cela n'est pas si facile à confirmer visuellement. On peut vérifier cela de façon plus formelle à l'aide d'un **variogramme**.
+### Variogrammes
 
-Intuitivement, un variogramme représente la variance des différences entre toutes les paires d'observations pour différentes classe de distances.
+Il semble y avoir un tel patron, mais cela n'est pas si facile à confirmer visuellement. On peut vérifier cela de façon plus formelle à l'aide d'un **variogramme**. Intuitivement, un variogramme représente la variance des différences entre toutes les paires d'observations pour différentes classes de distances. 
+
+Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du package **geoR**.
 
 <!--(mean square difference between each pair of variable divided by 2, semi-variance)-->
 
@@ -358,11 +376,11 @@ v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit))
 plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
 
-Si les observations près dans l'espace se ressemble davantage, on devrait s'attendre à ce que les valeurs de semivariance soient plus faibles pour les distances courtes. En fait, une courbe plate suggère qu'il n'y a pas de corrélation spatiale, alors qu'une courbe qui augmente (et qui atteint possiblement un plateau) suggère qu'il y a corrélation.
-
-Nous avons pris les valeurs par défaut de la fonction `variog` et notamment le nombre de classes de distances qui est relativement faible. Augmentons le nombre de classes afin d'avoir un peu plus de précision sur ce qui se passe à faible distance.
+Si les observations près dans l'espace se ressemblent davantage, on devrait s'attendre à ce que les valeurs de variance soient plus faibles pour les distances courtes. En fait, une courbe plate suggère qu'il n'y a pas de corrélation spatiale, alors qu'une courbe qui augmente (et qui atteint possiblement un plateau) suggère qu'il y a corrélation.
 
 <hr>
+
+Nous avons pris les valeurs par défaut de la fonction `variog` et notamment le nombre de classes de distances qui est relativement faible. Augmentons le nombre de classes afin d'avoir un peu plus de précision sur ce qui se passe à faible distance.
 
 ```{r}
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,20,by=0.5),max.dist=20)
@@ -380,20 +398,11 @@ plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance 
 
 Il semble donc y avoir une importante corrélation jusqu'à environ 2km, après quoi les points sont plutôt plats, indiquant qu'au delà de cette distance, la corrélation est faible ou inexistante.
 
-On a donc une corrélation spatiale et il faut donc en tenir compte dans notre analyse! Pour cela, il faut utiliser des méthodes spéciales qui sont disponibles dans les packages **geoR** et **gstat**. Cependant, ces packages peuvent être utilisés avec des modèles gaussiens, mais pas avec les GLM (à part geoRglm). 
-
-INLA facilite grandement l'inclusion d'effets spatiaux notamment dans les GLMs ou GLMMs auxquels nous sommes habitués.
+On a donc une corrélation spatiale et il faut donc en tenir compte dans notre analyse! Pour cela, il faut utiliser des méthodes spéciales qui sont disponibles dans les packages **geoR** et **gstat**. Cependant, ces packages peuvent être utilisés avec des modèles gaussiens, mais pas avec les GLM (à part le package geoRglm). 
 
 <hr>
 
-
-## Variogrammes
-
-Différentes valeurs de paramètres
-
-<hr>
-
-### Variogramme empirique
+#### Empiriques vs. Théoriques
 
 Un variogramme empirique est un variogramme généré à partir de données.
 
@@ -403,8 +412,6 @@ plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance 
 ```
 
 <hr>
-
-### Variogramme théorique
 
 Les variogrammes théoriques sont les modèles qui sont ajustés aux variogrammes empiriques.
 
@@ -429,7 +436,6 @@ Les différents types de variogrammes sont décrits par des paramètres qui peuv
 show.vgms(kappa.range=c(0.5,1,2,5),models="Mat",nugget=c(0.1,0.2,0.3,0.4),max=10,as.groups=TRUE)
 ```
 
-
 <hr>
 
 Un variogramme est souvent décrit par:
@@ -448,51 +454,26 @@ abline(v=2,lty=3)
 ```
 
 
+## Modèle spatial
+
+$$y(s) \sim Poisson(\mu(s))$$
+$$log(\mu(s))=\beta x + \mu(s)$$
+$$\mu \sim GF(0,\Sigma)$$
+
+Où:
+
+$y$: 
+
+# INLA
+
+INLA (*Integrated Nested Laplace Approximation*) est un algorithme complexe permettant d'approximer des distributions postérieures dans le cadre d'analyses bayésiennes. 
+
+Cette méthode peut être appliquée à plusieurs types de modèles que nous utilisons fréquemment (GLM, GLMM, GAM, analyse de survie, etc.). Plus généralement, cette méthode peut être appliquée pour une classe spéciale de modèles, soit les modèles gaussiens latents (*Latent Gaussian Models*, LGM). Cette classe de modèles généralise plusieurs modèles que nous utilisons couramment.
+
+Pour une introduction à cette approche, je vous suggère [Gomez-Rubio (2019)](https://becarioprecario.bitbucket.io/inla-gitbook/). Pour un condensé "accessible" de la théorie derrière INLA, je vous suggère cet [article](https://www.precision-analytics.ca/blog-1/inla) de blogue.
 
 
-## INLA
-
-INLA veut dire *Integrated Nested Laplace Approximation*. Pour une description "accessible" de la théorie derrière INLA, je vous suggère ce [lien](https://www.precision-analytics.ca/blog-1/inla) dans un blogue.
-
-### Approche bayésienne
-
-<hr>
-
-Bayes' rule
-
-$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
-
-<hr>
-
-Lorsque appliquée aux modèles
-
-$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
-<br><br>
-$data$: données
-$\theta$: paramètres du modèle
-
-### Priors
-
-### LGM
-
-### SPDE
-
-SPDE est pour *Stochastic Partial Differential Equation*
-
-Cette approche se base entre autres sur une discrétisation du *Gaussian Random Field* (GRF) par un *Gaussian Markov Random Field* (GMRF)
-
-Utilise une fonction de Matérn pour capturer la dépendance entre les localisations.
-
-
-<hr>
-
-<figure>
-<img src="C:/Users/User/Documents/GitHub/introRINLA/approachSPDE_Zuur.png" alt="", width = "100%">
-<figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
-</figure>
-
-
-##
+## GLM avec INLA
 
 ```{r}
 library(INLA)
@@ -508,10 +489,46 @@ cbind(summary(fit)$coef[,1:2],confint(fit))
 ```
 
 
+## Approche bayésienne
 
-# Un exemple de cas
+<!--
+<hr>
 
-## Cas
+Bayes' rule
+
+$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
+-->
+
+<hr>
+
+Lorsque appliquée aux modèles, on a:
+
+$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
+<br><br>
+$data$: données
+$\theta$: paramètres du modèle
+
+### *Priors*
+
+Les analyses bayésienne nécessitent des *priors*. INLA utilise des valeurs par défaut pour les *priors* associés aux paramètres standards (coefficient d'un GLM par exemple). Ces *priors* sont définis par une distribution normale centrée sur 0 et ayant une précision ($\tau$) de 0.001. La précision est l'inverse de la variance et donc une précision de 0.001 correspond à un écart-type de:
+
+$$ \sigma = \sqrt{\frac{1}{\tau}} = \sqrt{\frac{1}{0.001}} \approx 31.6$$
+
+En général, il faut s'assurer que ces *priors* sont appropriés pour notre analyse. Pour l'intercept, la précision utilisée est de 0. Les détails sont expliqués dans `?control.fixed`.
+
+### SPDE
+
+SPDE veut dire *Stochastic Partial Differential Equation*. Cette approche se base entre autres sur une discrétisation du *Gaussian Random Field* (GF ou GRF) par un *Gaussian Markov Random Field* (GMRF). La fonction utilisée pour décrire la covariance des observations est la fonction de Matérn.
+
+<hr>
+
+<figure>
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/approachSPDE_Zuur.png" alt="", width = "100%">
+<figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
+</figure>
+
+
+# GLM spatial
 
 ## Étapes
 
@@ -530,10 +547,9 @@ L'estimation d'un modèle avec un effet spatial avec INLA requiert de passer par
 Voici un résumé graphique de ces différentes étapes avec les fonction associées.
 
 <figure>
-<img src="C:/Users/User/Documents/GitHub/introRINLA/stepsSPDE_Zuur.png" alt="", width = "100%">
+<img src="https://raw.githubusercontent.com/frousseu/introRINLA/master/stepsSPDE_Zuur.png" alt="", width = "100%">
 <figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
 </figure>
-
 
 <hr>
 
@@ -931,6 +947,10 @@ lapply(ysims,function(i){
 ```{r, include=FALSE,eval=FALSE}
 
 library(gcKrig)
+library(geoR)
+library(INLA)
+library(fields)
+library(viridisLite)
 
 set.seed(1234)
 xloc <- runif(200)
@@ -942,6 +962,9 @@ d<-data.frame(counts=sims$data,xloc,yloc,x=rnorm(100))
 plot(d$xloc,d$yloc,cex=d$counts)
 
 fit<-glm(counts~x,family="poisson",data=d)
+
+write.csv(d,"exercise.csv",row.names=FALSE)
+d<-read.csv("https://raw.githubusercontent.com/frousseu/introRINLA/master/exercise.csv")
 
 v<-variog(coords=cbind(d$xloc,d$yloc),data=resid(fit),max.dist=0.9,breaks=seq(0,0.9,length.out=45))#,breaks=seq(0,20,by=1),max.dist=20)
 plot(v,main="Variogramme pres.abs",type="b",xlab="Distance(km)",ylab="Semivariance")
@@ -989,12 +1012,12 @@ par(mfrow = c(1, 2), mar = c(3, 3, 2, 3))
 image.plot(list(x = proj$x, y = proj$y, z = mfield), col = viridis(100), asp = 1)
 axis(1)
 axis(2)
-points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
+points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,5)),pch=16,col=gray(0,0.25))
 
 image.plot(list(x = proj$x, y = proj$y, z = sdfield), col = viridis(100), asp = 1)
 axis(1)
 axis(2)
-points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
+points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,5)),pch=16,col=gray(0,0.25))
 
 
 ```
@@ -1002,7 +1025,7 @@ points(d$xloc,d$yloc,cex=scales:::rescale(d$counts,to=c(0.1,3)))
 
 
 
-# Exercice 1
+
 
 # Liens utiles
 
@@ -1047,3 +1070,8 @@ Ces articles sont généralement très avancés et difficiles à comprendre. Le 
 Une introduction "accessible" à INLA (mais tout de même assez théorique!):
 <br>
 [A gentle INLA tutorial](https://www.precision-analytics.ca/blog-1/inla)
+
+# Exercice
+## Partie 1
+## Partie 2
+## Partie 3
