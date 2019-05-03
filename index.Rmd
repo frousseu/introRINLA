@@ -132,7 +132,7 @@ h5 {
 
 hr {
     border: none;
-    height: 180px;
+    height: 280px;
     /* Set the hr color */
     color: white; /* old IE */
     background-color: white; /* Modern Browsers */
@@ -285,8 +285,9 @@ head(d)
 
 On a donc un identifiant de parcelle, des coordonnées, la richesse en espèces et deux variables. L'altitude est en kilomètre et TCI est un index de complexité topographique.
 
-## Inspection des données
+
 <hr>
+## Inspection des données
 
 En premier, utilisons les fonctions du package [sp](https://edzer.github.io/sp/) pour convertir le `data.frame` en objet spatial. Ensuite, nous téléchargeons l'île en question avec la fonction `getData` du package [raster](https://www.rspatial.org/spatial/8-rastermanip.html) pour la visualisation.
 
@@ -362,6 +363,8 @@ par(mar=c(3,3,0,-0))
 plot(d,cex=rescale(resid(fit),to=c(0.2,3)),col=gray(0.5,0.5),pch=16,axes=TRUE)
 ```
 
+<hr>
+
 ### Variogrammes
 
 Il semble y avoir un tel patron, mais cela n'est pas si facile à confirmer visuellement. On peut vérifier cela de façon plus formelle à l'aide d'un **variogramme**. Intuitivement, un variogramme représente la variance des différences entre toutes les paires d'observations pour différentes classes de distances. 
@@ -370,7 +373,7 @@ Pour déterminer ceci, on peut faire un variogramme à l'aide des fonctions du p
 
 <!--(mean square difference between each pair of variable divided by 2, semi-variance)-->
 
-```{r}
+```{r,results="hide"}
 library(geoR)
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit))
 plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
@@ -382,7 +385,7 @@ Si les observations près dans l'espace se ressemblent davantage, on devrait s'a
 
 Nous avons pris les valeurs par défaut de la fonction `variog` et notamment le nombre de classes de distances qui est relativement faible. Augmentons le nombre de classes afin d'avoir un peu plus de précision sur ce qui se passe à faible distance.
 
-```{r}
+```{r,results="hide"}
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,20,by=0.5),max.dist=20)
 plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
@@ -391,7 +394,7 @@ On peut voir que la variance est beaucoup moins élevée à de faibles distances
 
 <hr>
 
-```{r}
+```{r,results="hide"}
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
 plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
@@ -406,7 +409,7 @@ On a donc une corrélation spatiale et il faut donc en tenir compte dans notre a
 
 Un variogramme empirique est un variogramme généré à partir de données.
 
-```{r,echo=FALSE}
+```{r,echo=FALSE,results="hide"}
 v<-variog(coords=cbind(d$easting,d$northing),data=resid(fit),breaks=seq(0,10,by=0.5),max.dist=10)
 plot(v, main="Empirical Variogram for Species Richness",type="b",xlab="Distance (km)",ylab="Semivariance") 
 ```
@@ -453,16 +456,32 @@ abline(3,0,lty=3)
 abline(v=2,lty=3)
 ```
 
+Un supposition importante qui est faite lorsque l'on utilise un simple variogramme est que la structure spatiale ne dépend pas de la direction ou de la localisation des observations. Autrement dit, on suppose que seule la distance entre les observations entre les points est importante pour quantifier leur dépendance. En d'autres mots, on assume qu'il y a **stationnarité** (pas de dépendance sur la localisation des observations) et **isoptropie** (pas de dépendance sur la direction entre les observations).
+
+<hr>
 
 ## Modèle spatial
 
+On peut formuler le simple GLM avec une distribution de Poisson vu plus haut de la façon suivante:
+
+$$y \sim Poisson(\mu)$$
+$$log(\mu)=\beta x$$
+
+
+Où $y$ sont les observations, $\mu$ est la moyenne et $log$ relie $\mu$ au prédicteur linéaire $\beta x$ qui est constitué des variables prédictives.
+
+<hr>
+
+Dans un modèle spatial, on peut avoir:
+
 $$y(s) \sim Poisson(\mu(s))$$
-$$log(\mu(s))=\beta x + \mu(s)$$
-$$\mu \sim GF(0,\Sigma)$$
+$$log(\mu(s))=\beta x + u(s)$$
+$$u \sim GF(0,\Sigma)$$
 
-Où:
+Où $s$ représente la localisation et $u$ est un effet spatial qui est distributé selon un champ gaussien (*Gaussian Random Field*) ayant une structure de covariance $\Sigma$ particulière. Cette structure est normalement déterminée par une fonction de covariance comme vu plus haut avec les variogrammes théoriques.
 
-$y$: 
+
+<hr>
 
 # INLA
 
@@ -472,8 +491,31 @@ Cette méthode peut être appliquée à plusieurs types de modèles que nous uti
 
 Pour une introduction à cette approche, je vous suggère [Gomez-Rubio (2019)](https://becarioprecario.bitbucket.io/inla-gitbook/). Pour un condensé "accessible" de la théorie derrière INLA, je vous suggère cet [article](https://www.precision-analytics.ca/blog-1/inla) de blogue.
 
+<hr>
+
+## INLA est bayésien
+
+$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
+<br><br>
+$data$: données
+<br>
+$\theta$: paramètres du modèle
+
+<hr>
+
+### Priors
+
+Les analyses bayésienne nécessitent des *priors*. INLA utilise des valeurs par défaut pour les *priors* associés aux paramètres standards (coefficient d'un GLM par exemple). Ces *priors* sont définis par une distribution normale centrée sur 0 et ayant une précision ($\tau$) de 0.001. La précision est l'inverse de la variance et donc une précision de 0.001 correspond à un écart-type de:
+
+$$ \sigma = \sqrt{\frac{1}{\tau}} = \sqrt{\frac{1}{0.001}} \approx 31.6$$
+
+En général, il faut s'assurer que ces *priors* sont appropriés pour notre analyse. Pour l'intercept, la précision utilisée est de 0. Les détails sont expliqués dans `?control.fixed`.
+
+<hr>
 
 ## GLM avec INLA
+
+Comparons notre GLM standard fait plus haut (`fit`) à un GLM fait avec INLA.
 
 ```{r}
 library(INLA)
@@ -483,42 +525,19 @@ summary(m)
 
 <hr>
 
+Les résultats sont extrêmement similaires.
+
 ```{r}
 m$summary.fixed[,c(1:3,5)]
 cbind(summary(fit)$coef[,1:2],confint(fit))
 ```
 
 
-## Approche bayésienne
-
-<!--
 <hr>
 
-Bayes' rule
+## SPDE
 
-$$P(A|B) = \frac{P(B|A)P(A)}{P(B)}$$
--->
-
-<hr>
-
-Lorsque appliquée aux modèles, on a:
-
-$$P(\theta|data) = \frac{P(data|\theta)P(\theta)}{P(data)}$$
-<br><br>
-$data$: données
-$\theta$: paramètres du modèle
-
-### *Priors*
-
-Les analyses bayésienne nécessitent des *priors*. INLA utilise des valeurs par défaut pour les *priors* associés aux paramètres standards (coefficient d'un GLM par exemple). Ces *priors* sont définis par une distribution normale centrée sur 0 et ayant une précision ($\tau$) de 0.001. La précision est l'inverse de la variance et donc une précision de 0.001 correspond à un écart-type de:
-
-$$ \sigma = \sqrt{\frac{1}{\tau}} = \sqrt{\frac{1}{0.001}} \approx 31.6$$
-
-En général, il faut s'assurer que ces *priors* sont appropriés pour notre analyse. Pour l'intercept, la précision utilisée est de 0. Les détails sont expliqués dans `?control.fixed`.
-
-### SPDE
-
-SPDE veut dire *Stochastic Partial Differential Equation*. Cette approche se base entre autres sur une discrétisation du *Gaussian Random Field* (GF ou GRF) par un *Gaussian Markov Random Field* (GMRF). La fonction utilisée pour décrire la covariance des observations est la fonction de Matérn.
+SPDE est la méthode utilisée par INLA pour approximer les champs gaussien. SPDE veut dire *Stochastic Partial Differential Equation*. Cette approche se base entre autres sur une discrétisation du *Gaussian Random Field* (GF ou GRF) par un *Gaussian Markov Random Field* (GMRF). La fonction utilisée pour décrire la covariance des observations est la fonction de Matérn. Les paramètres de cette fonction et donc du champ spatial sont estimés en résolvant ces équations différentielles.
 
 <hr>
 
@@ -527,17 +546,29 @@ SPDE veut dire *Stochastic Partial Differential Equation*. Cette approche se bas
 <figcaption>Tiré de <a href="http://highstat.com/index.php/beginner-s-guide-to-regression-models-with-spatial-and-temporal-correlation" target="_blank">Zuur, Ieno et Saveliev (2017)</a>, Volume I</figcaption>
 </figure>
 
+<hr>
 
 # GLM spatial
+
+## Formulation
+
+Un modèle spatial formulé dans R-INLA prend la forme suivante:
+
+$$y(s) \sim Poisson(\mu(s))$$
+$$log(\mu(s))=\beta x + Aw$$
+
+Où $A$ et $w$ permettent d'approximer le champ gaussien, qu'on assume être un $GMRF(0,\Sigma)$.
+
+<hr>
 
 ## Étapes
 
 L'estimation d'un modèle avec un effet spatial avec INLA requiert de passer par plusieurs étapes.
 
 - **Mesh**: permet de créer une triangulation qui discrétise le GF
-- **Projector Matrix**: permet de relier les localisations à la grille
-- **SPDE**: permet détablir le lien le SPDE et la fonction Matérn
-- **Spatial Field**: permet de créer le champ spatial
+- **Projector Matrix A**: permet de relier les localisations à la grille
+- **SPDE**: permet d'établir le lien le SPDE et la fonction Matérn
+- **Spatial Field**: identifiant du champ spatial
 - **Stack**: permet d'intégrer les différents éléments
 - **Formula**: formulation du modèle
 - **Modèle**: permet de faire tourner le modèle
@@ -555,7 +586,7 @@ Voici un résumé graphique de ces différentes étapes avec les fonction associ
 
 ### Mesh
 
-La première étape consiste à créer une grille (*mesh*) qui va être utilisée pour approximer le champ Gaussien. En premier, il faut obtenir les localisations.
+La première étape consiste à créer une grille (*mesh*) qui va être utilisée pour approximer le champ gaussien. En premier, il faut obtenir les localisations.
 
 ```{r,collapse=FALSE}
 locs<-coordinates(d)
@@ -566,15 +597,10 @@ head(locs)
 
 Par la suite, on utilise la fonction `inla.mesh.2d` pour créer la grille. Optionnellement, on peut utiliser une grille non-convexe qui respecte davantage le contour de nos observations.
 
-```{r,collapse=FALSE}
+```{r,collapse=FALSE,fig.width=8,fig.height=8}
 library(INLA)
 hull<-inla.nonconvex.hull(locs,convex=-0.05)
 mesh<-inla.mesh.2d(loc=locs,offset=c(1,5),max.edge=c(1,3),cutoff=1,boundary=hull)
-```
-
-<hr>
-
-```{r,collapse=FALSE,fig.width=8,fig.height=8}
 par(mar=c(0,0,6,0))
 plot(mesh,asp=1)
 points(locs,col=alpha("black",0.6),pch=16,cex=0.7)
@@ -593,7 +619,7 @@ Permet de spécifier les dimensions maximales des triangles de la grille à l'in
 
 `cutoff`
 <br>
-Par défaut, chaque observation sera utilisée comme un coin d'un triangle (*vertex*). Pour éviter la création de trop nombreux petits triangles, on spécifie une valeur à `cutoff` au delà de laquelle des points voisins seront ignorés lors de la création des triangles.
+Par défaut, chaque observation sera utilisée comme un coin d'un triangle (*vertex*). Pour éviter la création de trop nombreux petits triangles, on spécifie une valeur à `cutoff` au-delà de laquelle des points voisins seront ignorés lors de la création des triangles.
 
 `boundary`
 <br>
@@ -620,6 +646,8 @@ text(locs,label=1:nrow(locs))
 text(mesh$loc[,1:2],label=1:nrow(mesh$loc))
 ```
 
+<hr>
+
 Dans cet exemple, l'observation en rouge est située à l'intérieur d'un tiangle et les valeurs représentent la pondération qui sera utilisée sur les valeurs de chaque coin pour estimer la valeur de ce point.
 
 ```{r,collapse=FALSE,fig.width=7,fig.height=5}
@@ -638,7 +666,7 @@ text(mesh$loc[w,1:2],label=round(A[i,w],2),adj=c(-0.6,0.5),font=2,col="red")
 
 ### SPDE
 
-Ceci permet de définir les éléments du SPDE et les éléments associés aux caractéristiques du champ spatial.
+Ceci permet de définir les éléments du SPDE et les éléments associés aux caractéristiques du champ spatial. C'est notamment là qu'on doit spécifier les *priors* sur le champ spatial.
 
 ```{r,collapse=FALSE}
 spde<-inla.spde2.pcmatern(mesh,alpha=2,prior.range=c(2,0.5),prior.sigma=c(5,0.01))
@@ -648,7 +676,7 @@ L'argument `alpha` est pour spécifier une des paramètres de la fonction de Mat
 
 $$P(r<r_{0})= \alpha$$
 
-Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$. Dans notre cas, `prior.range=c(2,0.5)` veut dire que nous croyons qu'il y a 50% de chances que le l'étendue de la corrélation spatiale soit supérieure à 2km et donc qu'il y a également 50% des chances q'elle soit inférieure à 2km. Le *prior* pour la variance du champ spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
+Où $\alpha$ représente la probabilité que $r$ soit inférieur à $r_{0}$. Dans notre cas, `prior.range=c(2,0.5)` veut dire que nous croyons qu'il y a 50% de chances que l'étendue de la corrélation spatiale soit supérieure à 2km et donc qu'il y a également 50% des chances q'elle soit inférieure à 2km. Le *prior* pour la variance du champ spatial, $\sigma$, est spécifié avec $\alpha$ et $\sigma_{0}$:
 
 $$P(\sigma>\sigma_{0})= \alpha$$
 
@@ -659,7 +687,7 @@ Où $\alpha$ représente la probabilité que $\sigma$ soit inférieur à $\sigma
 
 ### Spatial Field
 
-Ceci permet de définir un index qui sera utile pour spécifier ou récupérer les éléments associés au champ spatial.
+Ceci permet de définir un index qui sera utile pour spécifier es éléments associés au champ spatial.
 
 ```{r,collapse=FALSE}
 spatial.index<-inla.spde.make.index(name="spatial",n.spde=spde$n.spde)
@@ -683,7 +711,7 @@ stack<-inla.stack(data=list(richness=d$richness),A=list(A,1),effects=list(spatia
 
 ### Formula
 
-On créé la formule décrivant le modèle souhaité. Notez que l'intercept est créé à la mitaine afin de.
+On crée la formule décrivant le modèle souhaité. Notez que l'intercept est créé "à la mitaine" afin d'avoir plus de contrôle dans le cas de modèles multivariés. Ce n'est donc pas essentiel, mais ça peut être une bonne habitude à prendre.
 ```{r,collapse=FALSE}
 model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 ```
@@ -692,7 +720,9 @@ model<-richness~-1+Intercept+altitude+altitude2+TCI+f(spatial,model=spde)
 
 ### Modèle
 
-Finalement, on fait tourner le modèle en appelant la fonction `inla` et en fournissant les différents arguments. La spécification de `compute=TRUE` fait en sorte que les distributions postérieures seront calculées pour toutes les observations. La spécification de `config=TRUE` permettra plus loin de faire des simulations et de générer des valeurs aléatoires à partir de notre modèle.
+Finalement, on fait tourner le modèle en appelant la fonction `inla` et en fournissant les différents arguments. 
+
+<!--La spécification de `compute=TRUE` fait en sorte que les distributions postérieures seront calculées pour toutes les observations. La spécification de `config=TRUE` permettra plus loin de faire des simulations et de générer des valeurs aléatoires à partir de notre modèle.-->
 
 ```{r,collapse=FALSE}
 m<-inla(model,data=inla.stack.data(stack),control.predictor=list(A=inla.stack.A(stack)),family="poisson")
@@ -714,7 +744,7 @@ names(m)
 
 ### Distributions postérieures
 
-Les premiers éléments qui devraient nous intéresser sont les distributions postérieures des coefficients associés à nos différentes variables. On peut extraire les quantiles de celles-cià partir du sommaire des effets fixes.
+Les premiers éléments qui devraient nous intéresser sont les distributions postérieures des coefficients associés à nos différentes variables. On peut extraire les quantiles de celles-ci à partir du sommaire des effets fixes.
 
 ```{r,collapse=FALSE}
 m$summary.fixed
@@ -759,8 +789,11 @@ invisible(
 )
 ```
 
+<hr>
 
-```{r,collapse=FALSE,include=FALSE,eval=FALSE}
+Ce sont deux façons pour obtenir les distributions postériures associés au paramètres du champ spatial.
+
+```{r,collapse=FALSE,include=TRUE,eval=TRUE}
 res<-inla.spde.result(m,"spatial",spde)
 par(mfrow=c(1,2),mar=c(4,4,1,1))
 plot(res$marginals.range.nominal[[1]],
@@ -787,7 +820,7 @@ plot(inla.tmarginal(sqrt, res$marginals.variance.nominal[[1]]),
 
 ### Champ spatial
 
-Le champ spatial peut être visualiser de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champ sur une grille. Ceci peut être fait de cette façon.
+Le champ spatial peut être visualisé de différentes façons. La façon la plus simple est d'utiliser les fonction de INLA pour projeter les valeurs du champ sur une grille. Ceci peut être fait de cette façon.
 
 ```{r,collapse=FALSE,out.width="80%"}
 
@@ -800,13 +833,10 @@ library(viridisLite)
 xlim<-range(d$easting)
 ylim<-range(d$northing)
 
-# - Can project from the mesh onto a 300x300 plotting grid 
 proj<-inla.mesh.projector(mesh,xlim=xlim,ylim=ylim,dims=c(300,300))
 
-# - Do the projection
 mfield<-inla.mesh.project(projector=proj,field=m$summary.random[['spatial']][['mean']])
 sdfield<-inla.mesh.project(projector=proj,field=m$summary.random[['spatial']][['sd']])
-
 
 par(mfrow=c(1,2),mar=c(3,3,2,3))
 
@@ -827,6 +857,8 @@ axis(2)
 
 Les prédictions dans INLA sont générées en soumettant des observations pour lesquelles la variable réponse est `NA` (dans notre cas, `richness=NA`). Si on utilise l'argument `compute=TRUE`, INLA se chargera de calculer des distributions postérieures pour l'ensemble des valeurs avec `NA`. Cela peut nous permettre par exemple de soumettre des valeurs d'altitude pour étudier son effet sur la richesse. 
 
+<hr>
+
 On génère 50 valeurs d'altitude entre les valeurs minimales et maximales.
 
 ```{r}
@@ -843,11 +875,14 @@ newlocs<-matrix(c(224,3175),ncol=2)[rep(1,n),]
 
 On associe la localisation fictive à la grille.
 
+
+<hr>
+
 ```{r}
 A.pred<-inla.spde.make.A(mesh=mesh,loc=newlocs)
 ```
 
-On construit une *stack* pour fournir les valeurs à prédires et on la joint à celle générée plus haut qui contient les données en tant que tel. On spécifie `tag=pred` ce qui va nous permettre d'identifier les lignes contenant les prédictions.
+On construit une *stack* pour fournir les valeurs à prédire et on la joint à celle générée plus haut qui contient les données en tant que tel. On spécifie `tag=pred` ce qui va nous d'identifier les lignes contenant les prédictions.
 
 ```{r}
 stack.pred<-inla.stack(data=list(richness=NA),A=list(A.pred,1),effects=list(spatial=spatial.index,as.list(newX)),tag="pred")
@@ -859,6 +894,8 @@ Avec ce `tag=pred`, on construit un index qui nous permettra de récupérer les 
 ```{r}
 index.pred<-inla.stack.index(stack.full,tag="pred")$data
 ```
+
+<hr>
 
 Finalement, on fait tourner notre modèle en prenant soin de spécifier `compute=TRUE` pour que INLA calcule les distributions postérieures. On spécifie également `link=1` pour s'assurer que INLA retransforme les valeurs sous l'échelle du nombre d'espèces et non sous l'échelle *log*.
 
@@ -1072,6 +1109,32 @@ Une introduction "accessible" à INLA (mais tout de même assez théorique!):
 [A gentle INLA tutorial](https://www.precision-analytics.ca/blog-1/inla)
 
 # Exercice
+
+Les exercices consisteront à reproduire les différentes étapes pour arriver à formuler un modèle spatial avec INLA. Les données sont situées à cette adresse et peuvent être importées directement dans R à partir de la fonction `read.csv`.
+
+```{r}
+d<-read.csv("https://raw.githubusercontent.com/frousseu/introRINLA/master/exercise.csv")
+```
+
 ## Partie 1
+
+Pour cette première étape, familiarisez-vous avec les données avec quelques graphiques d'exploration de données et construisez un modèle simple pour expliquer les variations dans les comptes. Reste-t-il de la variation non-expliquée par votre modèle qui est structurée spatialement? Pour ce faire, vous devrez effectuer un variogramme.
+
 ## Partie 2
+
+Construisez une grille (*mesh*) appropriée qui sera utilisée pour réaliser un modèle spatial avec l'approche par SPDE.
+
 ## Partie 3
+
+Réalisez les différentes étapes permettant d'estimer un modèle spatial avec la fonction `inla` et estimer les paramètres de votre modèle. Visualisez les distributions postérieures de vos paramètres à l'aide de graphiques.
+
+## Partie 4
+
+Projetez votre champ spatial et son incertitude en utilisant les fonctions `inla.mesh.projector` et `inla.mesh.project`. Comparez ces résultats avec vous observations en ajoutrant vos points aux graphiques.
+
+## Partie 5
+
+Générez des prédictions pour visualiser l'effet de votre variable `x`. Vous pouvez adopter l'approche utilisant le *stack*, mais il est également possible d'ajouter les données nécessaire à un simple `data.frame` que vous pouvez fournir à `inla` avec l'argument `data`.
+
+
+
